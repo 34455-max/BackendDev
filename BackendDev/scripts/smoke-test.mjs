@@ -51,6 +51,15 @@ test('serves the app and reports API health',async()=>{
 });
 test('creates beginner CRUD starter templates that pass their generated checks',async()=>{
   assert.equal(resourceForIdea('I need to manage a product catalog'),'products');
+  const html=await(await fetch(`http://127.0.0.1:${appPort}/`)).text();
+  assert.match(html,/<label for="stackChoice">Backend language<\/label>/);
+  assert.match(html,/<select id="stackChoice" name="stackChoice" required/);
+  assert.match(html,/determines the generated source files and which local runtime BackendDev uses/);
+  for(const [language,entry] of [['Python','main.py'],['JavaScript','index.js'],['Go','main.go'],['Rust','main.rs'],['Java','Main.java']]) {
+    const files=createStarterFiles(language,'Choice API','Manage products');
+    assert.ok(files[entry],`${language} selection must generate its matching entry file`);
+    assert.match(files['README.md'],/GET \/products/);
+  }
   const python=createStarterFiles('Python','Shop API','Manage products, customers and orders');
   assert.match(python['main.py'],/RESOURCE = "products"/);assert.match(python['main.py'],/Access-Control-Allow-Origin/);assert.match(python['main.py'],/def do_PUT/);
   const pythonRun=await fetch(`http://127.0.0.1:${appPort}/api/run`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer test-token'},body:JSON.stringify({language:'python',task:'test',files:python})});
