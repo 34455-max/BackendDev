@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import net from 'node:net';
+import { createStarterFiles, resourceForIdea } from '../starter-templates.js';
 
 const root = new URL('../', import.meta.url);
 let app, mockDb, appPort, mockPort;
@@ -38,8 +39,20 @@ before(async () => {
 after(async()=>{app?.kill();if(mockDb)await new Promise(resolve=>mockDb.close(resolve));});
 
 test('serves the app and reports API health',async()=>{
-  const page=await fetch(`http://127.0.0.1:${appPort}/`);assert.equal(page.status,200);assert.match(await page.text(),/BackendDev/);
+  const page=await fetch(`http://127.0.0.1:${appPort}/`);assert.equal(page.status,200);const html=await page.text();assert.match(html,/BackendDev/);assert.match(html,/What happens when someone uses your app/);assert.match(html,/id="closeProject"/);assert.match(html,/type="module" src="app.js"/);
+  const script=await (await fetch(`http://127.0.0.1:${appPort}/app.js`)).text(),ids=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]));for(const [,id] of script.matchAll(/querySelector\(['"]#([\w-]+)/g))assert.ok(ids.has(id),`app.js refers to missing #${id}`);
+  const css=await (await fetch(`http://127.0.0.1:${appPort}/styles.css`)).text();assert.match(css,/body\{font-size:16px/);assert.match(css,/\.learning-steps/);
   const health=await (await fetch(`http://127.0.0.1:${appPort}/api/health`)).json();assert.equal(health.status,'ok');
+});
+test('creates beginner CRUD starter templates that pass their generated checks',async()=>{
+  assert.equal(resourceForIdea('I need to manage a product catalog'),'products');
+  const python=createStarterFiles('Python','Shop API','Manage products, customers and orders');
+  assert.match(python['main.py'],/RESOURCE = "products"/);assert.match(python['main.py'],/Access-Control-Allow-Origin/);assert.match(python['main.py'],/def do_PUT/);
+  const pythonRun=await fetch(`http://127.0.0.1:${appPort}/api/run`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({language:'python',task:'test',files:python})});
+  assert.equal(pythonRun.status,200);const pythonResult=await pythonRun.json();assert.equal(pythonResult.exitCode,0,pythonResult.output);assert.match(pythonResult.output,/Ran 2 tests/);
+  const javascript=createStarterFiles('JavaScript','Shop API','Manage products');assert.match(javascript['index.js'],/const resource = "products"/);assert.match(javascript['index.js'],/"DELETE"/);
+  const jsRun=await fetch(`http://127.0.0.1:${appPort}/api/run`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({language:'javascript',task:'test',files:javascript})});
+  assert.equal(jsRun.status,200);const jsResult=await jsRun.json();assert.equal(jsResult.exitCode,0,jsResult.output);
 });
 test('creates and updates projects using only real Supabase columns',async()=>{
   const headers={'content-type':'application/json',authorization:'Bearer test-token'};
@@ -49,8 +62,16 @@ test('creates and updates projects using only real Supabase columns',async()=>{
   const updated=await fetch(`http://127.0.0.1:${appPort}/api/projects/${project.id}`,{method:'PUT',headers,body:JSON.stringify({files:{'main.py':'print("changed")'},updated:'just now'})});
   assert.equal(updated.status,200);assert.ok((await updated.json()).updated_at);
 });
+test('keeps a local backend alive until its run session is stopped',async(t)=>{
+  const runtimes=await (await fetch(`http://127.0.0.1:${appPort}/api/runtimes`)).json();if(!runtimes.python?.installed)t.skip('Python runtime is not installed');
+  let sessionId;
+  try{const started=await fetch(`http://127.0.0.1:${appPort}/api/run/start`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({language:'python',files:{'main.py':'import time\nprint("ready", flush=True)\ntime.sleep(30)'}})});assert.equal(started.status,200);const data=await started.json();sessionId=data.sessionId;assert.ok(sessionId);assert.equal(data.running,true);assert.match(data.output,/ready/);
+    const poll=await fetch(`http://127.0.0.1:${appPort}/api/run/${sessionId}`);assert.equal(poll.status,200);assert.equal((await poll.json()).running,true);
+    const stopped=await fetch(`http://127.0.0.1:${appPort}/api/run/${sessionId}`,{method:'DELETE'});assert.equal(stopped.status,200);let finalState;for(let i=0;i<20;i++){await wait(100);finalState=await (await fetch(`http://127.0.0.1:${appPort}/api/run/${sessionId}`)).json();if(!finalState.running)break}assert.equal(finalState.running,false,'stop should terminate the local backend');
+  }finally{if(sessionId)await fetch(`http://127.0.0.1:${appPort}/api/run/${sessionId}`,{method:'DELETE'});}
+});
 test('production mode refuses to execute user code',async()=>{
   const port=await freePort(),child=spawn(process.execPath,['server.mjs'],{cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(port),NODE_ENV:'production',SUPABASE_URL:'',SUPABASE_ANON_KEY:'',APP_URL:''},stdio:'ignore'});
-  try { await ready(`http://127.0.0.1:${port}/api/health`,child);const result=await fetch(`http://127.0.0.1:${port}/api/run`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({language:'python',files:{'main.py':'print(1)'}})});assert.equal(result.status,503);assert.match((await result.json()).error,/secure isolated runner/); }
+  try { await ready(`http://127.0.0.1:${port}/api/health`,child);for(const route of ['/api/run','/api/run/start']){const result=await fetch(`http://127.0.0.1:${port}${route}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({language:'python',files:{'main.py':'print(1)'}})});assert.equal(result.status,503);assert.match((await result.json()).error,/secure isolated worker|secure isolated runner/);} }
   finally { child.kill(); }
 });

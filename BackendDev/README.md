@@ -17,10 +17,10 @@ When Supabase is configured, projects are stored per signed-in user in Supabase.
 2. Search projects from the dashboard or choose a project card to open its workspace.
 3. Select a file, edit it, and choose **Save file**. Saved project files are stored by the local backend.
 4. Use **Generate** to describe a change. BackendDev asks the configured model for a JSON proposal; inspect it and choose **Apply proposed files** to save it.
-5. Choose **Run**, **Build**, or **Test** and press **Start**. The dashboard's runtime check tells you which runtimes the local machine has installed. Read stdout/stderr in the output panel.
-6. Use **Try a deployed API** to send GET/POST/PUT/PATCH/DELETE requests to a public URL. The target must allow browser CORS requests. Use **How to deploy** for the checklist, then **Export project** to download project metadata and files as JSON.
+5. Choose **Run API server** and start it. Unlike a one-shot command, the local server stays alive until you press **Stop backend**. Use the API tester at `http://127.0.0.1:3000/health`, `/products`, or the resource name in your project. Try GET, POST, PUT, PATCH, and DELETE; send JSON in the body for writes. The dashboard runtime check shows which language tools are installed.
+6. Choose **Run tests** to exercise checks, or **Build** for the language's compile/syntax step. Output and errors appear in the workspace. Export the project when you want to continue in your own editor or deploy it.
 
-The Python beginner starter creates a working in-memory JSON REST API with a health endpoint and sample collection/item routes, plus `unittest` checks. Its sample data resets when the process stops. Other language starters are simpler examples; Python can run and discover `unittest` tests; JavaScript uses Node; Go and Rust support basic build/test commands; Java compiles and runs `Main.java`. TypeScript is currently JavaScript syntax only. Framework dependencies are not installed by the app. The runtime check also reports .NET, Ruby, and PHP availability, but those are not yet runnable from BackendDev.
+The Python and JavaScript beginner starters create working in-memory CRUD REST APIs with a health check, collection/detail routes, CORS for the built-in API tester, and tests. Their sample records reset when the backend stops; connect a database for persistent data. Go includes an HTTP health endpoint. Rust and Java are runnable console starters that explain where to add a web framework. The app does not install framework dependencies. The runtime check also reports .NET, Ruby, and PHP availability, but those runtimes are not currently offered as runnable starter templates.
 
 The dashboard activity list is stored in the current browser only. The API tester sends requests from the browser and does not proxy traffic through the server. BackendDev does not publish generated backends to the internet; users must export/deploy each generated API themselves.
 
@@ -30,7 +30,7 @@ The dashboard activity list is stored in the current browser only. The API teste
 
 The server authenticates project API requests against Supabase Auth and scopes database access by owner; it filters writes to valid table columns and sets `updated_at`. Smoke tests use a fake Supabase endpoint to verify this contract. Production code execution remains disabled until a hardened isolated worker is configured. The deployment checklist confirms configuration presence; it cannot verify email delivery or the live Supabase migration by itself.
 
-The local runner has a time limit and temporary working directory, but no OS/container security boundary. Run trusted code only. For public multi-user hosting, production code execution stays disabled until a secure worker is added.
+The local runner uses a temporary working directory and keeps up to four local run sessions open, with a 30-minute cap per session. It has no OS/container security boundary. Run only code you trust. For public multi-user hosting, production code execution stays disabled until a secure worker is added.
 
 ## Cursor behavior reviewed
 
@@ -44,10 +44,12 @@ This is documentary evidence of described product behavior, not a reverse-engine
 
 ## Prototype boundary
 
-The picker offers TypeScript, Python, Go, Rust, Java, C#, Ruby, PHP, and custom project entries. The included local runner currently executes only Python, JavaScript, Go, Rust, and Java, and requires each runtime/compiler to be installed. It runs processes in temporary folders with a timeout, but does not provide OS-level sandboxing; only run trusted code. The AI route expects an OpenAI-compatible Chat Completions endpoint. Actual generation requires a valid key, model name, and network access to the provider.
+Runnable starters are Python, JavaScript / Node.js, Go, Rust, and Java. Python and JavaScript have CRUD API examples; Go has a health endpoint; Rust and Java are console starters. Each local runtime/compiler must be installed first. The AI route expects an OpenAI-compatible Chat Completions endpoint and needs a valid server-side key, model URL, model name, and network access to the provider.
 
 ## Files
 
 - `index.html` — dashboard and project creation dialog
 - `styles.css` — responsive dark workspace styling
 - `app.js` — client-side interactions
+- `starter-templates.js` — generated project files and beginner CRUD templates
+- `scripts/smoke-test.mjs` — server, database schema contract, starter, runner, and production safety checks
