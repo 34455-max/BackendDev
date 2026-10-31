@@ -21,7 +21,19 @@ function runProcess(cmd,args,cwd,ms){return new Promise(resolve=>{const child=sp
 const servers=http.createServer(async(req,res)=>{try{if(req.method==='OPTIONS'){res.writeHead(204,{'access-control-allow-origin':'*','access-control-allow-methods':'GET,POST,PUT,DELETE,OPTIONS','access-control-allow-headers':'content-type'});return res.end()}
 const url=new URL(req.url,'http://localhost');if(url.pathname.startsWith('/api/')){
  if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{status:'ok',mode:process.env.NODE_ENV==='production'?'production-configured':'local',multiUserReady:supabaseEnabled()&&(process.env.NODE_ENV!=='production'||Boolean(process.env.APP_URL))});
- if(req.method==='POST'&&url.pathname==='/api/auth/signup'){if(!supabaseEnabled())return send(res,503,{error:'Supabase is not configured.'});const b=await body(req);try{const redirect=process.env.APP_URL||req.headers.origin||`http://127.0.0.1:${process.env.PORT||4173}`;const target=`${process.env.SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(redirect)}`;const r=await fetch(target,{method:'POST',headers:{apikey:process.env.SUPABASE_ANON_KEY,'content-type':'application/json'},body:JSON.stringify({email:b.email,password:b.password})});return send(res,r.status,await r.json())}catch(e){const code=e.cause?.code||'network unavailable';return send(res,502,{error:`BackendDev could not contact Supabase (${code}). Check this server's internet access.`})}}
+ if(req.method==='POST'&&url.pathname==='/api/auth/signup'){
+  if(!supabaseEnabled())return send(res,503,{error:'Supabase is not configured on the BackendDev server.'});
+  if(process.env.NODE_ENV==='production'&&!process.env.APP_URL)return send(res,503,{error:'Set APP_URL to your public deployed BackendDev URL before enabling signup.'});
+  const b=await body(req);
+  try{
+   let requestOrigin='';try{const incoming=req.headers.origin?new URL(req.headers.origin):null;const host=String(req.headers.host||'').toLowerCase();if(incoming&&incoming.host.toLowerCase()===host)requestOrigin=incoming.origin}catch{}
+   const fallback=`http://127.0.0.1:${process.env.PORT||4173}`;
+   const redirect=process.env.NODE_ENV==='production'?process.env.APP_URL:(requestOrigin||process.env.APP_URL||fallback);
+   const target=`${process.env.SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(redirect)}`;
+   const r=await fetch(target,{method:'POST',headers:{apikey:process.env.SUPABASE_ANON_KEY,'content-type':'application/json'},body:JSON.stringify({email:b.email,password:b.password})});
+   return send(res,r.status,await r.json());
+  }catch(e){const code=e.cause?.code||'network unavailable';return send(res,502,{error:`BackendDev could not contact Supabase (${code}). Check the Supabase project URL and this server's internet access.`})}
+ }
  if(req.method==='POST'&&url.pathname==='/api/auth/signin'){if(!supabaseEnabled())return send(res,503,{error:'Supabase is not configured.'});const b=await body(req);try{const r=await fetch(`${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{apikey:process.env.SUPABASE_ANON_KEY,'content-type':'application/json'},body:JSON.stringify({email:b.email,password:b.password})});return send(res,r.status,await r.json())}catch(e){const code=e.cause?.code||'network unavailable';return send(res,502,{error:`BackendDev could not contact Supabase (${code}). Check this server's internet access.`})}}
  if(req.method==='POST'&&url.pathname==='/api/auth/resend'){if(!supabaseEnabled())return send(res,503,{error:'Supabase is not configured.'});const b=await body(req);const r=await fetch(`${process.env.SUPABASE_URL}/auth/v1/resend`,{method:'POST',headers:{apikey:process.env.SUPABASE_ANON_KEY,'content-type':'application/json'},body:JSON.stringify({type:'signup',email:b.email})});const d=await r.json();return send(res,r.status,d.error||d.msg?d:{ok:true})}
  if(req.method==='GET'&&url.pathname==='/api/projects')return send(res,200,supabaseEnabled()?await dbRequest(req,'GET'):await read());

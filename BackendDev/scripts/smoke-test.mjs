@@ -6,7 +6,7 @@ import net from 'node:net';
 import { createStarterFiles, resourceForIdea } from '../starter-templates.js';
 
 const root = new URL('../', import.meta.url);
-let app, mockDb, appPort, mockPort;
+let app, mockDb, appPort, mockPort, lastSignupRedirect='';
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function freePort() { const server = net.createServer(); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); const port = server.address().port; await new Promise(resolve => server.close(resolve)); return port; }
 async function ready(url, child) { for (let i=0;i<80;i++) { if (child.exitCode!==null) throw Error('BackendDev process exited before it was ready'); try { const r=await fetch(url); if(r.ok)return; } catch {} await wait(100); } throw Error('BackendDev did not start in time'); }
@@ -17,6 +17,9 @@ before(async () => {
     let raw=''; for await (const chunk of req) raw += chunk;
     res.setHeader('content-type','application/json');
     if (req.url === '/auth/v1/user') { res.end(JSON.stringify({id:'11111111-1111-4111-8111-111111111111'})); return; }
+    if (req.url.startsWith('/auth/v1/token?grant_type=password')) { const credentials=JSON.parse(raw);res.end(JSON.stringify(credentials.password==='correct-password'?{access_token:'mock-access-token',token_type:'bearer',user:{id:'11111111-1111-4111-8111-111111111111'}}:(res.statusCode=400,{code:'invalid_credentials',msg:'Invalid login credentials'})));return; }
+    if (req.url.startsWith('/auth/v1/signup?')) { lastSignupRedirect=new URL(req.url,'http://mock-supabase.test').searchParams.get('redirect_to');res.end(JSON.stringify({id:'11111111-1111-4111-8111-111111111111',email:'learner@example.test'}));return; }
+    if (req.url==='/auth/v1/resend') { res.end(JSON.stringify({}));return; }
     if (req.url.startsWith('/rest/v1/projects')) {
       if (req.method === 'GET') { res.end('[]'); return; }
       const payload=raw?JSON.parse(raw):{};
@@ -33,14 +36,15 @@ before(async () => {
   });
   await new Promise(resolve => mockDb.listen(mockPort,'127.0.0.1',resolve));
   appPort=await freePort();
-  app=spawn(process.execPath,['server.mjs'],{cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(appPort),NODE_ENV:'test',SUPABASE_URL:`http://127.0.0.1:${mockPort}`,SUPABASE_ANON_KEY:'test-publishable-key',APP_URL:''},stdio:'ignore'});
+  app=spawn(process.execPath,['server.mjs'],{cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(appPort),NODE_ENV:'test',SUPABASE_URL:`http://127.0.0.1:${mockPort}`,SUPABASE_ANON_KEY:'test-publishable-key',APP_URL:'http://127.0.0.1:4173'},stdio:'ignore'});
   await ready(`http://127.0.0.1:${appPort}/api/health`,app);
 });
 after(async()=>{app?.kill();if(mockDb)await new Promise(resolve=>mockDb.close(resolve));});
 
 test('serves the app and reports API health',async()=>{
-  const page=await fetch(`http://127.0.0.1:${appPort}/`);assert.equal(page.status,200);const html=await page.text();assert.match(html,/BackendDev/);assert.match(html,/What happens when someone uses your app/);assert.match(html,/id="closeProject"/);assert.match(html,/type="module" src="app.js"/);
+  const page=await fetch(`http://127.0.0.1:${appPort}/`);assert.equal(page.status,200);const html=await page.text();assert.match(html,/BackendDev/);assert.match(html,/Build my project/);assert.match(html,/What happens when someone uses your app/);assert.match(html,/id="closeProject"/);assert.match(html,/type="module" src="app.js"/);
   const script=await (await fetch(`http://127.0.0.1:${appPort}/app.js`)).text(),ids=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]));for(const [,id] of script.matchAll(/querySelector\(['"]#([\w-]+)/g))assert.ok(ids.has(id),`app.js refers to missing #${id}`);
+  assert.match(script,/querySelector\('#newProject'\)\.addEventListener/);assert.match(script,/querySelector\('#accountButton'\)\.addEventListener/);assert.match(script,/querySelector\('#authForm'\)\.addEventListener/);assert.match(script,/openAuthDialog\(\)/);assert.match(script,/session expired\/i/);
   const css=await (await fetch(`http://127.0.0.1:${appPort}/styles.css`)).text();assert.match(css,/body\{font-size:16px/);assert.match(css,/\.learning-steps/);
   const health=await (await fetch(`http://127.0.0.1:${appPort}/api/health`)).json();assert.equal(health.status,'ok');
 });
@@ -61,6 +65,11 @@ test('creates and updates projects using only real Supabase columns',async()=>{
   assert.equal(created.status,201);const project=await created.json();assert.ok(project.updated_at);assert.equal(project.description,payload.description);
   const updated=await fetch(`http://127.0.0.1:${appPort}/api/projects/${project.id}`,{method:'PUT',headers,body:JSON.stringify({files:{'main.py':'print("changed")'},updated:'just now'})});
   assert.equal(updated.status,200);assert.ok((await updated.json()).updated_at);
+});
+test('sign-in and signup endpoints reach Supabase and use the app origin locally',async()=>{
+  const signin=await fetch(`http://127.0.0.1:${appPort}/api/auth/signin`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'learner@example.test',password:'correct-password'})});assert.equal(signin.status,200);assert.equal((await signin.json()).access_token,'mock-access-token');
+  const failed=await fetch(`http://127.0.0.1:${appPort}/api/auth/signin`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'learner@example.test',password:'wrong-password'})});assert.equal(failed.status,400);assert.match((await failed.json()).msg,/Invalid login credentials/);
+  const signup=await fetch(`http://127.0.0.1:${appPort}/api/auth/signup`,{method:'POST',headers:{'content-type':'application/json',origin:`http://127.0.0.1:${appPort}`},body:JSON.stringify({email:'learner@example.test',password:'correct-password'})});assert.equal(signup.status,200);assert.equal(lastSignupRedirect,`http://127.0.0.1:${appPort}`);
 });
 test('keeps a local backend alive until its run session is stopped',async(t)=>{
   const runtimes=await (await fetch(`http://127.0.0.1:${appPort}/api/runtimes`)).json();if(!runtimes.python?.installed)t.skip('Python runtime is not installed');

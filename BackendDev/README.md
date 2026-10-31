@@ -13,7 +13,7 @@ When Supabase is configured, projects are stored per signed-in user in Supabase.
 
 ## Typical workflow
 
-1. Select **Build my backend**, write what the backend should do in everyday words, and choose a language. The builder previews a starter resource and routes; Python is the beginner-friendly default.
+1. Select **Build my project**, write what the backend should do in everyday words, and choose a language. The builder previews a starter resource and routes; Python is the beginner-friendly default. You can build in this browser before signing in; sign in later to sync local-only projects to your account.
 2. Search projects from the dashboard or choose a project card to open its workspace.
 3. Select a file, edit it, and choose **Save file**. Saved project files are stored by the local backend.
 4. Use **Generate** to describe a change. BackendDev asks the configured model for a JSON proposal; inspect it and choose **Apply proposed files** to save it.
@@ -27,6 +27,8 @@ The dashboard activity list is stored in the current browser only. The API teste
 ## Multi-user deployment
 
 `render.yaml` describes a Render web service, and `supabase/migrations/001_projects.sql` defines owner-scoped project rows protected by Postgres row-level security. Run that SQL in the Supabase SQL editor before deploying. Add `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `APP_URL`, `MODEL_API_KEY`, `MODEL_API_URL`, and `MODEL_NAME` in Render environment settings. Set `APP_URL` to the public Render URL and allow that URL in Supabase Auth redirect settings so confirmation links return to the hosted app. Keep the Supabase service-role key server-side only; BackendDev does not need it.
+
+For local signup, BackendDev uses the exact local app origin you opened for the email confirmation redirect. If Supabase rejects it, add that origin under **Authentication → URL Configuration → Redirect URLs**. A phone cannot open a `127.0.0.1` or `localhost` URL on your computer; phone sign-in needs the app deployed at a public HTTPS URL and that same URL configured as `APP_URL` and an allowed redirect.
 
 The server authenticates project API requests against Supabase Auth and scopes database access by owner; it filters writes to valid table columns and sets `updated_at`. Smoke tests use a fake Supabase endpoint to verify this contract. Production code execution remains disabled until a hardened isolated worker is configured. The deployment checklist confirms configuration presence; it cannot verify email delivery or the live Supabase migration by itself.
 
