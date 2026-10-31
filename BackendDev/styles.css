@@ -43,3 +43,7 @@ dialog::backdrop{background:#06090bcc;backdrop-filter:blur(8px)}
 .auth-footnote{font-size:12px;line-height:1.5}
 #authError{font-size:13px;line-height:1.45}
 @media(max-width:520px){.auth-modal{padding:25px}.auth-modal h2{font-size:27px}.auth-modal .modal-actions{grid-template-columns:1fr}.auth-modal label{font-size:14px}.auth-modal input{font-size:16px}}
+.auth-modal input{background:#25312d!important;border:1px solid #64766b!important;color:#fff!important;box-shadow:inset 0 1px 2px #0005;transition:border-color .16s,box-shadow .16s,background .16s}
+.auth-modal input::placeholder{color:#bdc9c1;opacity:1}
+.auth-modal input:focus{background:#2a3832!important;border-color:#b7f28b!important;box-shadow:0 0 0 3px #b7f28b2b}
+.auth-modal input:user-invalid{border-color:#ff8d83!important;box-shadow:0 0 0 3px #ff8d8326}
