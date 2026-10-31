@@ -19,5 +19,7 @@ services:
         sync: false
       - key: MODEL_API_KEY
         sync: false
+      - key: MODEL_API_URL
+        sync: false
       - key: MODEL_NAME
         sync: false

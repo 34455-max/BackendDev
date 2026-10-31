@@ -5,32 +5,32 @@ BackendDev is a local backend project workspace. It includes a project dashboard
 ## Run locally
 
 1. Install Node.js 20 or later.
-2. Copy `.env.example` to `.env`; enter your model API key and exact model name. The default OpenAI URL is already filled in.
+2. Copy `.env.example` to `.env`. Set the Supabase project URL and publishable/anon key for multi-user project storage, plus the model API key, provider URL, and exact model name for AI generation. The OpenAI-compatible URL is prefilled as an example.
 3. Run `npm start` from this folder.
 4. Open `http://127.0.0.1:4173/`.
 
-Projects are stored in `data/projects.json`. `.env` and `data/` are excluded from Git. Never commit or share your API key. Restart the server after editing `.env`.
+When Supabase is configured, projects are stored per signed-in user in Supabase. Without Supabase, project data falls back to this machine's `data/projects.json` (and the browser keeps a local fallback). `.env` and `data/` are excluded from Git. Never commit or share API keys. Restart the server after editing `.env`.
 
 ## Typical workflow
 
-1. Select **Build my backend**, write what the backend should do in everyday words, and choose a language. Python is the beginner-friendly default.
+1. Select **Build my backend**, write what the backend should do in everyday words, and choose a language. The builder previews a starter resource and routes; Python is the beginner-friendly default.
 2. Search projects from the dashboard or choose a project card to open its workspace.
 3. Select a file, edit it, and choose **Save file**. Saved project files are stored by the local backend.
 4. Use **Generate** to describe a change. BackendDev asks the configured model for a JSON proposal; inspect it and choose **Apply proposed files** to save it.
 5. Choose **Run**, **Build**, or **Test** and press **Start**. The dashboard's runtime check tells you which runtimes the local machine has installed. Read stdout/stderr in the output panel.
-6. Choose **Export project** to download the project metadata and file contents as JSON.
+6. Use **Try a deployed API** to send GET/POST/PUT/PATCH/DELETE requests to a public URL. The target must allow browser CORS requests. Use **How to deploy** for the checklist, then **Export project** to download project metadata and files as JSON.
 
 The Python beginner starter creates a working in-memory JSON REST API with a health endpoint and sample collection/item routes, plus `unittest` checks. Its sample data resets when the process stops. Other language starters are simpler examples; Python can run and discover `unittest` tests; JavaScript uses Node; Go and Rust support basic build/test commands; Java compiles and runs `Main.java`. TypeScript is currently JavaScript syntax only. Framework dependencies are not installed by the app. The runtime check also reports .NET, Ruby, and PHP availability, but those are not yet runnable from BackendDev.
 
-This local app does not publish generated backends to the internet. Public deployment needs a hosting provider account, database and secrets configuration, and safe per-project execution. Do not treat the local development server as a hosted service.
+The dashboard activity list is stored in the current browser only. The API tester sends requests from the browser and does not proxy traffic through the server. BackendDev does not publish generated backends to the internet; users must export/deploy each generated API themselves.
 
-## Multi-user deployment preparation (not launch-ready yet)
+## Multi-user deployment
 
-`render.yaml` describes a Render web service, and `supabase/migrations/001_projects.sql` defines owner-scoped project rows protected by Postgres row-level security. Create a Supabase project and run that SQL before deploying. Add its URL and publishable/anon key as `SUPABASE_URL` and `SUPABASE_ANON_KEY`; set `APP_URL` to the public Render URL so confirmation links return to the hosted app. Keep the service role key server-side only.
+`render.yaml` describes a Render web service, and `supabase/migrations/001_projects.sql` defines owner-scoped project rows protected by Postgres row-level security. Run that SQL in the Supabase SQL editor before deploying. Add `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `APP_URL`, `MODEL_API_KEY`, `MODEL_API_URL`, and `MODEL_NAME` in Render environment settings. Set `APP_URL` to the public Render URL and allow that URL in Supabase Auth redirect settings so confirmation links return to the hosted app. Keep the Supabase service-role key server-side only; BackendDev does not need it.
 
-**Important:** the current app API still uses local JSON storage and does not yet authenticate requests or use the Supabase table. These files are infrastructure preparation only; do not deploy as a multi-user app until Supabase Auth and per-user database access are implemented and verified. The runner is also not isolated for untrusted code. A public service must disable the runner or move it into a hardened isolated worker before launch.
+The server authenticates project API requests against Supabase Auth and scopes database access by owner; it filters writes to valid table columns and sets `updated_at`. Smoke tests use a fake Supabase endpoint to verify this contract. Production code execution remains disabled until a hardened isolated worker is configured. The deployment checklist confirms configuration presence; it cannot verify email delivery or the live Supabase migration by itself.
 
-The runner has a time limit and temporary working directory, but no OS/container security boundary. Run trusted code only. Do not expose this development server to a network or use it for public multi-user workloads.
+The local runner has a time limit and temporary working directory, but no OS/container security boundary. Run trusted code only. For public multi-user hosting, production code execution stays disabled until a secure worker is added.
 
 ## Cursor behavior reviewed
 
