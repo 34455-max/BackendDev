@@ -11,6 +11,17 @@ BackendDev is a local backend project workspace. It includes a project dashboard
 
 Projects are stored in `data/projects.json`. `.env` and `data/` are excluded from Git. Never commit or share your API key. Restart the server after editing `.env`.
 
+## Typical workflow
+
+1. Select **New project**, give it a name, and choose a language/framework starter.
+2. Search projects from the dashboard or choose a project card to open its workspace.
+3. Select a file, edit it, and choose **Save file**. Saved project files are stored by the local backend.
+4. Use **Generate** to describe a change. BackendDev asks the configured model for a JSON proposal; inspect it and choose **Apply proposed files** to save it.
+5. Choose **Run project** to execute the entry point when that runtime is installed. Read stdout/stderr in the output panel.
+6. Choose **Export project** to download the project metadata and file contents as JSON.
+
+The runner has a time limit and temporary working directory, but no OS/container security boundary. Run trusted code only. Do not expose this development server to a network or use it for public multi-user workloads.
+
 ## Cursor behavior reviewed
 
 The design takes workflow cues from Cursor's public product documentation:
