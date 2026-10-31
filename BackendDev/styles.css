@@ -86,6 +86,8 @@ body[data-theme="light"] .auth-modal .modal-copy,body[data-theme="light"] .auth-
 body[data-theme="light"] .auth-modal .outline{color:#34433a;border-color:#cbd6ce}
 body[data-theme="light"] .auth-modal .eyebrow{color:#39772d}body[data-theme="light"] .auth-modal #authError{color:#b42318}
 body[data-theme="light"] .auth-theme{color:#39772d;background:#f0f7ec;border-color:#d1e2cc}
+.footer-credit{margin-left:12px;color:#79867d}.footer-credit b{color:var(--text);font-weight:600}
+body[data-theme="light"] .footer-credit{color:#5c6c60}
 body[data-theme="light"] .modal-note{background:#f0f6ed;border-color:#d4e4ce;color:#40533e}
 
 /* Guided builder, API client, activity and deployment helpers */

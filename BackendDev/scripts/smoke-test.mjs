@@ -94,3 +94,7 @@ test('production mode refuses to execute user code',async()=>{
   try { await ready(`http://127.0.0.1:${port}/api/health`,child);for(const route of ['/api/run','/api/run/start']){const result=await fetch(`http://127.0.0.1:${port}${route}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({language:'python',files:{'main.py':'print(1)'}})});assert.equal(result.status,503);assert.match((await result.json()).error,/secure isolated worker|secure isolated runner/);} }
   finally { child.kill(); }
 });
+test('Render public URL supports the production auth redirect health check',async()=>{
+  const port=await freePort(),child=spawn(process.execPath,['server.mjs'],{cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(port),NODE_ENV:'production',SUPABASE_URL:'https://supabase.example.test',SUPABASE_ANON_KEY:'test-publishable-key',APP_URL:'',RENDER_EXTERNAL_URL:'https://backenddev.example.onrender.com'},stdio:'ignore'});
+  try{await ready(`http://127.0.0.1:${port}/api/health`,child);const health=await(await fetch(`http://127.0.0.1:${port}/api/health`)).json();assert.equal(health.multiUserReady,true)}finally{child.kill()}
+});

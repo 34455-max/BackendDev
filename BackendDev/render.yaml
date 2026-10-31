@@ -2,7 +2,7 @@ services:
   - type: web
     name: backenddev
     runtime: node
-    plan: starter
+    plan: free
     buildCommand: npm ci --omit=dev || npm install --omit=dev
     startCommand: npm start
     healthCheckPath: /api/health
@@ -14,8 +14,6 @@ services:
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
-        sync: false
-      - key: APP_URL
         sync: false
       - key: MODEL_API_KEY
         sync: false

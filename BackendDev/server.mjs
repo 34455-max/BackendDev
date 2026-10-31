@@ -35,15 +35,16 @@ async function requestProposal(prompt,files){
 function runProcess(cmd,args,cwd,ms){return new Promise(resolve=>{const child=spawn(cmd,args,{cwd,windowsHide:true});let output='',done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);resolve(value)};const timer=setTimeout(()=>{child.kill();finish({exitCode:124,output:'Process timed out.'})},ms);child.stdout.on('data',d=>output+=d);child.stderr.on('data',d=>output+=d);child.on('error',e=>finish({exitCode:127,output:`Could not start ${cmd}: ${e.message}`}));child.on('close',code=>finish({exitCode:code??1,output}))})}
 const servers=http.createServer(async(req,res)=>{try{if(req.method==='OPTIONS'){res.writeHead(204,{'access-control-allow-origin':'*','access-control-allow-methods':'GET,POST,PUT,DELETE,OPTIONS','access-control-allow-headers':'content-type'});return res.end()}
 const url=new URL(req.url,'http://localhost');if(url.pathname.startsWith('/api/')){
- if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{status:'ok',mode:process.env.NODE_ENV==='production'?'production-configured':'local',multiUserReady:supabaseEnabled()&&(process.env.NODE_ENV!=='production'||Boolean(process.env.APP_URL))});
+ if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{status:'ok',mode:process.env.NODE_ENV==='production'?'production-configured':'local',multiUserReady:supabaseEnabled()&&(process.env.NODE_ENV!=='production'||Boolean(process.env.APP_URL||process.env.RENDER_EXTERNAL_URL))});
  if(req.method==='POST'&&url.pathname==='/api/auth/signup'){
   if(!supabaseEnabled())return send(res,503,{error:'Supabase is not configured on the BackendDev server.'});
-  if(process.env.NODE_ENV==='production'&&!process.env.APP_URL)return send(res,503,{error:'Set APP_URL to your public deployed BackendDev URL before enabling signup.'});
+  const publicAppUrl=process.env.APP_URL||process.env.RENDER_EXTERNAL_URL;
+  if(process.env.NODE_ENV==='production'&&!publicAppUrl)return send(res,503,{error:'BackendDev could not determine its public URL. Set APP_URL before enabling signup.'});
   const b=await body(req);
   try{
    let requestOrigin='';try{const incoming=req.headers.origin?new URL(req.headers.origin):null;const host=String(req.headers.host||'').toLowerCase();if(incoming&&incoming.host.toLowerCase()===host)requestOrigin=incoming.origin}catch{}
    const fallback=`http://127.0.0.1:${process.env.PORT||4173}`;
-   const redirect=process.env.NODE_ENV==='production'?process.env.APP_URL:(requestOrigin||process.env.APP_URL||fallback);
+   const redirect=process.env.NODE_ENV==='production'?publicAppUrl:(requestOrigin||publicAppUrl||fallback);
    const target=`${process.env.SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(redirect)}`;
    const r=await fetch(target,{method:'POST',headers:{apikey:process.env.SUPABASE_ANON_KEY,'content-type':'application/json'},body:JSON.stringify({email:b.email,password:b.password})});
    return send(res,r.status,await r.json());
