@@ -24,6 +24,12 @@ The Python beginner starter creates a working in-memory JSON REST API with a hea
 
 This local app does not publish generated backends to the internet. Public deployment needs a hosting provider account, database and secrets configuration, and safe per-project execution. Do not treat the local development server as a hosted service.
 
+## Multi-user deployment preparation (not launch-ready yet)
+
+`render.yaml` describes a Render web service, and `supabase/migrations/001_projects.sql` defines owner-scoped project rows protected by Postgres row-level security. Create a Supabase project and run that SQL before deploying. Add its URL and publishable/anon key as `SUPABASE_URL` and `SUPABASE_ANON_KEY`; keep the service role key server-side only.
+
+**Important:** the current app API still uses local JSON storage and does not yet authenticate requests or use the Supabase table. These files are infrastructure preparation only; do not deploy as a multi-user app until Supabase Auth and per-user database access are implemented and verified. The runner is also not isolated for untrusted code. A public service must disable the runner or move it into a hardened isolated worker before launch.
+
 The runner has a time limit and temporary working directory, but no OS/container security boundary. Run trusted code only. Do not expose this development server to a network or use it for public multi-user workloads.
 
 ## Cursor behavior reviewed

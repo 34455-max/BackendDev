@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: backenddev
+    runtime: node
+    plan: starter
+    buildCommand: npm ci --omit=dev || npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: MODEL_API_KEY
+        sync: false
+      - key: MODEL_NAME
+        sync: false
