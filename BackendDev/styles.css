@@ -88,6 +88,8 @@ body[data-theme="light"] .auth-modal .eyebrow{color:#39772d}body[data-theme="lig
 body[data-theme="light"] .auth-theme{color:#39772d;background:#f0f7ec;border-color:#d1e2cc}
 .footer-credit{margin-left:12px;color:#79867d}.footer-credit b{color:var(--text);font-weight:600}
 body[data-theme="light"] .footer-credit{color:#5c6c60}
+.access-status{color:var(--muted);font-size:12px}.launch-warning{max-width:620px;margin:auto;padding:44px;background:var(--panel);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow)}.launch-warning .brand-mark{margin-bottom:30px}.launch-warning .eyebrow{color:var(--accent);margin:0 0 10px}.launch-warning h1{font-size:clamp(30px,5vw,44px)}.launch-warning>p:not(.eyebrow){color:var(--muted);font-size:16px;line-height:1.7;margin-bottom:24px}.launch-warning code{background:var(--panel2);padding:3px 6px;border-radius:5px}
+@media(max-width:720px){.access-status{display:none}.launch-warning{margin:16px;padding:26px}}
 body[data-theme="light"] .modal-note{background:#f0f6ed;border-color:#d4e4ce;color:#40533e}
 
 /* Guided builder, API client, activity and deployment helpers */

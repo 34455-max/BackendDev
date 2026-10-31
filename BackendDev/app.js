@@ -33,7 +33,7 @@ async function syncProjects(){
   try{
     const health=await api('/api/health');cloudStorageReady=Boolean(health.multiUserReady);
     document.querySelector('#serverStatus').textContent=cloudStorageReady?'Cloud configured':'Local storage';document.querySelector('#serverMode').textContent=cloudStorageReady?'Sign in to sync this device':'Saved on this computer';
-    if(!accessToken){projects=[];renderProjects();updateProfile();openAuthDialog();return}
+    if(!accessToken){projects=[];renderProjects();renderActivity();updateProfile();return}
     if(!cloudStorageReady){throw Error('Sign-in is required, but Supabase is not configured on this BackendDev server. Add its URL and publishable key, then restart the app.')}
     const remote=await api('/api/projects');
     if(cloudStorageReady){
@@ -45,11 +45,11 @@ async function syncProjects(){
   }catch(error){
     document.querySelector('#serverStatus').textContent='Offline';document.querySelector('#serverMode').textContent='Could not reach the BackendDev server';
     if(/please sign in|session expired/i.test(error.message)){accessToken='';sessionStorage.removeItem('backenddev.accessToken');updateProfile();openAuthDialog()}
-    else if(!accessToken){projects=[];renderProjects();updateProfile();openAuthDialog();notify('Sign in is required. Check that the BackendDev server is running.')}
+    else if(!accessToken){projects=[];renderProjects();renderActivity();updateProfile();notify('Sign in to use BackendDev. If this page will not load, start the app with npm start.')}
     else notify(error.message);
   }
 }
-function updateProfile(){const signedIn=Boolean(accessToken);document.querySelector('#accountButton').textContent=signedIn?'Sign out':'Sign in';document.querySelector('#profileLabel').textContent=signedIn?(document.querySelector('#authEmail').value||'Signed in'):'Your account';document.querySelector('#profileHint').textContent=signedIn?'Synced private projects':'Local workspace';document.querySelector('#workspaceAccountLabel').textContent=signedIn?'Synced account':'Personal projects'}
+function updateProfile(){const signedIn=Boolean(accessToken);document.querySelector('#accountButton').textContent=signedIn?'Sign out':'Sign in';document.querySelector('#accessStatus').textContent=signedIn?'Workspace unlocked':'Sign in to unlock tools';document.querySelector('#profileLabel').textContent=signedIn?(document.querySelector('#authEmail').value||'Signed in'):'Your account';document.querySelector('#profileHint').textContent=signedIn?'Synced private projects':'Sign in to continue';document.querySelector('#workspaceAccountLabel').textContent=signedIn?'Synced account':'Sign in to continue'}
 function requireSignIn(){if(accessToken)return true;openAuthDialog();return false}
 function saveProjects(){const local=projects.filter(project=>project.localOnly||!cloudStorageReady);localStorage.setItem(STORE_KEY,JSON.stringify(local.filter(project=>!seeds.some(seed=>seed.id===project.id))))}
 function notify(message) { toast.textContent = message; toast.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('show'), 2800); }
