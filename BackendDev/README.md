@@ -9,16 +9,19 @@ BackendDev is a local backend project workspace. It includes a project dashboard
 3. Run `npm start` from this folder.
 4. Open `http://127.0.0.1:4173/`.
 
-When Supabase is configured, projects are stored per signed-in user in Supabase. Without Supabase, project data falls back to this machine's `data/projects.json` (and the browser keeps a local fallback). `.env` and `data/` are excluded from Git. Never commit or share API keys. Restart the server after editing `.env`.
+Sign in with Supabase before using project creation, AI generation, execution, API testing, or exports. Project routes and runner endpoints check the user's Supabase session server-side too. `.env` and `data/` are excluded from Git. Never commit or share API keys. Restart the server after editing `.env`.
 
 ## Typical workflow
 
-1. Select **Build my project**, write what the backend should do in everyday words, and choose a language. The builder previews a starter resource and routes; Python is the beginner-friendly default. You can build in this browser before signing in; sign in later to sync local-only projects to your account.
-2. Search projects from the dashboard or choose a project card to open its workspace.
-3. Select a file, edit it, and choose **Save file**. Saved project files are stored by the local backend.
-4. Use **Generate** to describe a change. BackendDev asks the configured model for a JSON proposal; inspect it and choose **Apply proposed files** to save it.
-5. Choose **Run API server** and start it. Unlike a one-shot command, the local server stays alive until you press **Stop backend**. Use the API tester at `http://127.0.0.1:3000/health`, `/products`, or the resource name in your project. Try GET, POST, PUT, PATCH, and DELETE; send JSON in the body for writes. The dashboard runtime check shows which language tools are installed.
-6. Choose **Run tests** to exercise checks, or **Build** for the language's compile/syntax step. Output and errors appear in the workspace. Export the project when you want to continue in your own editor or deploy it.
+1. Sign in or create an account and confirm its email if Supabase asks you to.
+2. Select **Build my project**, write what the backend should do in everyday words, and choose a language. The builder previews a starter resource and routes; Python is the beginner-friendly default.
+3. Search projects from the dashboard or choose a project card to open its workspace.
+4. Select a file, edit it, and choose **Save file**. Saved project files are stored in your Supabase account.
+5. Use **Generate** to describe a change. BackendDev asks the configured model for a JSON proposal; inspect it and choose **Apply proposed files** to save it. The AI feature needs a working provider key, model ID, URL, network access, and API credits.
+6. Choose **Run API server** and start it. Unlike a one-shot command, the local server stays alive until you press **Stop backend**. Use the API tester at `http://127.0.0.1:3000/health`, `/products`, or the resource name in your project. Try GET, POST, PUT, PATCH, and DELETE; send JSON in the body for writes. The dashboard runtime check shows which language tools are installed.
+7. Choose **Run tests** to exercise checks, or **Build** for the language's compile/syntax step. Output and errors appear in the workspace. Export the project when you want to continue in your own editor or deploy it.
+
+Use the Light mode / Dark mode button in the header or sign-in panel to choose a theme; BackendDev remembers the choice in that browser. If an AI request reports HTTP 429 or no credits, add credits in the provider account. If it reports HTTP 404, check the exact model ID and API endpoint in `.env`.
 
 The Python and JavaScript beginner starters create working in-memory CRUD REST APIs with a health check, collection/detail routes, CORS for the built-in API tester, and tests. Their sample records reset when the backend stops; connect a database for persistent data. Go includes an HTTP health endpoint. Rust and Java are runnable console starters that explain where to add a web framework. The app does not install framework dependencies. The runtime check also reports .NET, Ruby, and PHP availability, but those runtimes are not currently offered as runnable starter templates.
 
@@ -51,7 +54,7 @@ Runnable starters are Python, JavaScript / Node.js, Go, Rust, and Java. Python a
 ## Files
 
 - `index.html` — dashboard and project creation dialog
-- `styles.css` — responsive dark workspace styling
+- `styles.css` — responsive interface and dark/light themes
 - `app.js` — client-side interactions
 - `starter-templates.js` — generated project files and beginner CRUD templates
 - `scripts/smoke-test.mjs` — server, database schema contract, starter, runner, and production safety checks
