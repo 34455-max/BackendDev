@@ -29,3 +29,17 @@ dialog::backdrop{background:#06090bcc;backdrop-filter:blur(8px)}
 #projectForm{padding:34px}.workspace-modal{padding:30px}.toast{border-radius:10px;box-shadow:0 12px 40px #0006}
 .getting-started{background:linear-gradient(120deg,#141b18,#111619);border:1px solid #2b3830;border-radius:14px;padding:20px;margin:0 0 26px;box-shadow:0 12px 32px #0002}.getting-started h2{font:600 15px Manrope,sans-serif;margin:8px 0 15px}.guide-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.guide-steps>div{display:flex;gap:10px;align-items:flex-start}.guide-steps>div>b{color:var(--green);font:600 10px Manrope,sans-serif}.guide-steps strong,.guide-steps small{display:block}.guide-steps strong{font-size:10px}.guide-steps small{font-size:9px;color:#929d96;margin-top:4px}.runtime-line{display:flex;justify-content:space-between;border-top:1px solid #29322c;margin-top:16px;padding-top:12px;color:#89958d;font-size:9px}
 @media(max-width:720px){.auth-modal{padding:28px;min-height:440px}.auth-brand{margin-bottom:38px}.auth-modal h2{font-size:25px}.guide-steps{grid-template-columns:1fr;gap:10px}.getting-started{padding:15px}.runtime-line{align-items:center;gap:8px}.welcome h1{font-size:25px}}
+
+/* Accessible, vertically aligned authentication form */
+#authDialog{width:min(460px,calc(100vw - 28px));max-width:calc(100vw - 28px);overflow-x:hidden}
+.auth-modal{display:flex;flex-direction:column;width:100%;max-width:100%;min-width:0;overflow-x:hidden;gap:0}
+.auth-modal label{display:block;width:100%;font-size:14px;line-height:1.4;font-weight:600;margin:16px 0 7px;color:#e4ebe6}
+.auth-modal input{display:block;width:100%;max-width:100%;min-width:0;height:50px;padding:0 15px;border-radius:10px;font-size:16px;line-height:1.4}
+.auth-modal .modal-copy{font-size:14px;line-height:1.6;color:#b0bbb4}
+.auth-modal .eyebrow{font-size:11px;letter-spacing:1.3px}
+.auth-modal h2{font-size:31px;line-height:1.2}
+.auth-modal .modal-actions{width:100%;gap:12px}
+.auth-modal .modal-actions button{font-size:14px;min-width:0;padding:12px 10px}
+.auth-footnote{font-size:12px;line-height:1.5}
+#authError{font-size:13px;line-height:1.45}
+@media(max-width:520px){.auth-modal{padding:25px}.auth-modal h2{font-size:27px}.auth-modal .modal-actions{grid-template-columns:1fr}.auth-modal label{font-size:14px}.auth-modal input{font-size:16px}}
