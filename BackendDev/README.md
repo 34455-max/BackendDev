@@ -26,7 +26,7 @@ This local app does not publish generated backends to the internet. Public deplo
 
 ## Multi-user deployment preparation (not launch-ready yet)
 
-`render.yaml` describes a Render web service, and `supabase/migrations/001_projects.sql` defines owner-scoped project rows protected by Postgres row-level security. Create a Supabase project and run that SQL before deploying. Add its URL and publishable/anon key as `SUPABASE_URL` and `SUPABASE_ANON_KEY`; keep the service role key server-side only.
+`render.yaml` describes a Render web service, and `supabase/migrations/001_projects.sql` defines owner-scoped project rows protected by Postgres row-level security. Create a Supabase project and run that SQL before deploying. Add its URL and publishable/anon key as `SUPABASE_URL` and `SUPABASE_ANON_KEY`; set `APP_URL` to the public Render URL so confirmation links return to the hosted app. Keep the service role key server-side only.
 
 **Important:** the current app API still uses local JSON storage and does not yet authenticate requests or use the Supabase table. These files are infrastructure preparation only; do not deploy as a multi-user app until Supabase Auth and per-user database access are implemented and verified. The runner is also not isolated for untrusted code. A public service must disable the runner or move it into a hardened isolated worker before launch.
 
