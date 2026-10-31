@@ -6,6 +6,7 @@ create table if not exists public.projects (
   language text not null,
   framework text not null default 'Custom',
   description text not null default '',
+  status text not null default 'Draft',
   files jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
