@@ -47,3 +47,4 @@ dialog::backdrop{background:#06090bcc;backdrop-filter:blur(8px)}
 .auth-modal input::placeholder{color:#bdc9c1;opacity:1}
 .auth-modal input:focus{background:#2a3832!important;border-color:#b7f28b!important;box-shadow:0 0 0 3px #b7f28b2b}
 .auth-modal input:user-invalid{border-color:#ff8d83!important;box-shadow:0 0 0 3px #ff8d8326}
+.auth-modal [hidden]{display:none!important}
