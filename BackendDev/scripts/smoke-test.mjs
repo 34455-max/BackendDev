@@ -6,7 +6,7 @@ import net from 'node:net';
 import { createStarterFiles, resourceForIdea } from '../starter-templates.js';
 
 const root = new URL('../', import.meta.url);
-let app, mockDb, appPort, mockPort, lastSignupRedirect='', modelCalls=0;
+let app, mockDb, appPort, mockPort, lastSignupRedirect='', lastRecoveryRedirect='', signupMetadata=null, updatedPassword='', modelCalls=0, resendCalls=0;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function freePort() { const server = net.createServer(); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); const port = server.address().port; await new Promise(resolve => server.close(resolve)); return port; }
 async function ready(url, child) { for (let i=0;i<80;i++) { if (child.exitCode!==null) throw Error('BackendDev process exited before it was ready'); try { const r=await fetch(url); if(r.ok)return; } catch {} await wait(100); } throw Error('BackendDev did not start in time'); }
@@ -16,12 +16,19 @@ before(async () => {
   mockDb = http.createServer(async (req, res) => {
     let raw=''; for await (const chunk of req) raw += chunk;
     res.setHeader('content-type','application/json');
-    if (req.url === '/auth/v1/user') { res.end(JSON.stringify({id:'11111111-1111-4111-8111-111111111111'})); return; }
+    if (req.url === '/auth/v1/user'&&req.method==='GET') { const member=req.headers.authorization==='Bearer non-owner-token';res.end(JSON.stringify({id:member?'44444444-4444-4444-8444-444444444444':'11111111-1111-4111-8111-111111111111',email:member?'member@example.test':'owner@example.test'})); return; }
+    if (req.url==='/auth/v1/admin/users?page=1&per_page=100') { res.end(JSON.stringify({users:[{id:'22222222-2222-4222-8222-222222222222',email:'member@example.test',created_at:'2026-01-01T00:00:00Z',confirmed_at:'2026-01-02T00:00:00Z'}]}));return; }
+    if (req.url.startsWith('/auth/v1/admin/users/')&&req.method==='PUT') { const uid=req.url.split('/').pop(),patch=JSON.parse(raw);assert.equal(req.headers.apikey,'sb_secret_test-key');assert.notEqual(req.headers.authorization,'Bearer sb_secret_test-key');res.end(JSON.stringify({user:{id:uid,banned_until:patch.ban_duration==='none'?null:'2126-01-01T00:00:00Z'}}));return; }
+    if (req.url.startsWith('/auth/v1/admin/users/')&&req.method==='DELETE') { assert.equal(req.headers.apikey,'sb_secret_test-key');res.end(JSON.stringify({id:req.url.split('/').pop()}));return; }
     if (req.url === '/v1/chat/completions') { const payload=JSON.parse(raw);modelCalls++;assert.equal(payload.model,'test-model');if(payload.messages[1].content.includes('simulate quota error')){res.statusCode=429;res.end(JSON.stringify({error:{message:'insufficient_quota: no credits remaining'}}));return}res.end(JSON.stringify({choices:[{message:{content:'```json\n{"summary":"Added a health route","files":{"main.py":"print(\"ok\")"}}\n```'}}]}));return; }
     if (req.url.startsWith('/auth/v1/token?grant_type=password')) { const credentials=JSON.parse(raw);res.end(JSON.stringify(credentials.password==='correct-password'?{access_token:'mock-access-token',token_type:'bearer',user:{id:'11111111-1111-4111-8111-111111111111'}}:(res.statusCode=400,{code:'invalid_credentials',msg:'Invalid login credentials'})));return; }
-    if (req.url.startsWith('/auth/v1/signup?')) { lastSignupRedirect=new URL(req.url,'http://mock-supabase.test').searchParams.get('redirect_to');res.end(JSON.stringify({id:'11111111-1111-4111-8111-111111111111',email:'learner@example.test'}));return; }
-    if (req.url==='/auth/v1/resend') { res.end(JSON.stringify({}));return; }
+    if (req.url.startsWith('/auth/v1/signup?')) { lastSignupRedirect=new URL(req.url,'http://mock-supabase.test').searchParams.get('redirect_to');signupMetadata=JSON.parse(raw).data;res.end(JSON.stringify({id:'11111111-1111-4111-8111-111111111111',email:'learner@example.test'}));return; }
+    if (req.url.startsWith('/auth/v1/recover?')) { lastRecoveryRedirect=new URL(req.url,'http://mock-supabase.test').searchParams.get('redirect_to');res.end(JSON.stringify({}));return; }
+    if (req.url==='/auth/v1/user'&&req.method==='PUT') { updatedPassword=JSON.parse(raw).password;res.end(JSON.stringify({id:'11111111-1111-4111-8111-111111111111'}));return; }
+    if (req.url==='/auth/v1/resend') { resendCalls++;res.end(JSON.stringify({}));return; }
     if (req.url.startsWith('/rest/v1/projects')) {
+      if(req.url.includes('select=id,owner_id,name,language,framework,status,created_at,updated_at')){assert.equal(req.headers.apikey,'sb_secret_test-key');assert.notEqual(req.headers.authorization,'Bearer sb_secret_test-key');res.end(JSON.stringify([{id:'33333333-3333-4333-8333-333333333333',owner_id:'22222222-2222-4222-8222-222222222222',name:'Example API',language:'Python',framework:'FastAPI',status:'Draft'}]));return;}
+      if(req.method==='DELETE'&&req.url.includes('id=eq.')){assert.equal(req.headers.apikey,'sb_secret_test-key');res.end('');return;}
       if (req.method === 'GET') { res.end('[]'); return; }
       const payload=raw?JSON.parse(raw):{};
       if (req.method === 'POST') assert.equal(payload.owner_id,'11111111-1111-4111-8111-111111111111');
@@ -37,7 +44,7 @@ before(async () => {
   });
   await new Promise(resolve => mockDb.listen(mockPort,'127.0.0.1',resolve));
   appPort=await freePort();
-  app=spawn(process.execPath,['server.mjs'],{cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(appPort),NODE_ENV:'test',SUPABASE_URL:`http://127.0.0.1:${mockPort}`,SUPABASE_ANON_KEY:'test-publishable-key',APP_URL:'http://127.0.0.1:4173',MODEL_API_KEY:'mock-model-key',MODEL_API_URL:`http://127.0.0.1:${mockPort}/v1/chat/completions`,MODEL_NAME:'test-model'},stdio:'ignore'});
+  app=spawn(process.execPath,['server.mjs'],{cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(appPort),NODE_ENV:'test',SUPABASE_URL:`http://127.0.0.1:${mockPort}`,SUPABASE_ANON_KEY:'test-publishable-key',APP_URL:'http://127.0.0.1:4173',APP_ADMIN_EMAILS:'owner@example.test',SUPABASE_SECRET_KEY:'sb_secret_test-key',MODEL_API_KEY:'mock-model-key',MODEL_API_URL:`http://127.0.0.1:${mockPort}/v1/chat/completions`,MODEL_NAME:'test-model'},stdio:'ignore'});
   await ready(`http://127.0.0.1:${appPort}/api/health`,app);
 });
 after(async()=>{app?.kill();if(mockDb)await new Promise(resolve=>mockDb.close(resolve));});
@@ -45,7 +52,7 @@ after(async()=>{app?.kill();if(mockDb)await new Promise(resolve=>mockDb.close(re
 test('serves the app and reports API health',async()=>{
   const page=await fetch(`http://127.0.0.1:${appPort}/`);assert.equal(page.status,200);const html=await page.text();assert.match(html,/BackendDev/);assert.match(html,/Build my project/);assert.match(html,/What happens when someone uses your app/);assert.match(html,/id="closeProject"/);assert.match(html,/type="module" src="app.js"/);
   const script=await (await fetch(`http://127.0.0.1:${appPort}/app.js`)).text(),ids=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]));for(const [,id] of script.matchAll(/querySelector\(['"]#([\w-]+)/g))assert.ok(ids.has(id),`app.js refers to missing #${id}`);
-  assert.match(script,/querySelector\('#newProject'\)\.addEventListener/);assert.match(script,/querySelector\('#accountButton'\)\.addEventListener/);assert.match(script,/querySelector\('#authForm'\)\.addEventListener/);assert.match(script,/openAuthDialog\(\)/);assert.match(script,/session expired\/i/);assert.match(script,/applyTheme/);assert.match(script,/if\(!accessToken\)projects=\[\];renderProjects\(\);renderActivity\(\);syncProjects\(\);/);assert.match(html,/id="accessStatus"/);assert.match(html,/if \(location\.protocol === 'file:'\)/);assert.match(html,/id="themeToggle"/);assert.match(html,/id="authThemeToggle"/);assert.match(html,/auth-access-note/);
+  assert.match(script,/querySelector\('#newProject'\)\.addEventListener/);assert.match(script,/querySelector\('#accountButton'\)\.addEventListener/);assert.match(script,/querySelector\('#authForm'\)\.addEventListener/);assert.match(script,/openAuthDialog\(\)/);assert.match(script,/session expired\/i/);assert.match(script,/applyTheme/);assert.match(script,/localStorage\.getItem\(THEME_KEY\)\|\|'light'/);assert.match(script,/\/api\/auth\/recover/);assert.match(script,/\/api\/admin\/me/);assert.match(script,/if\(!accessToken\)projects=\[\];renderProjects\(\);renderActivity\(\);syncProjects\(\);/);assert.match(html,/id="accessStatus"/);assert.match(html,/if \(location\.protocol === 'file:'\)/);assert.match(html,/id="themeToggle"/);assert.match(html,/id="authThemeToggle"/);assert.match(html,/id="termsDialog"/);assert.match(html,/id="adminDialog"/);assert.match(html,/auth-access-note/);
   const css=await (await fetch(`http://127.0.0.1:${appPort}/styles.css`)).text();assert.match(css,/body\{font-size:16px/);assert.match(css,/\.learning-steps/);assert.match(css,/body\[data-theme="light"\]/);
   assert.match(css,/@media\(max-width:820px\)/);assert.match(css,/\.sidebar nav\.main-nav\{display:flex/);assert.match(css,/\.content\{width:100%;max-width:100%;min-width:0/);
   const health=await (await fetch(`http://127.0.0.1:${appPort}/api/health`)).json();assert.equal(health.status,'ok');
@@ -77,10 +84,35 @@ test('creates and updates projects using only real Supabase columns',async()=>{
   const updated=await fetch(`http://127.0.0.1:${appPort}/api/projects/${project.id}`,{method:'PUT',headers,body:JSON.stringify({files:{'main.py':'print("changed")'},updated:'just now'})});
   assert.equal(updated.status,200);assert.ok((await updated.json()).updated_at);
 });
-test('sign-in and signup endpoints reach Supabase and use the app origin locally',async()=>{
+test('sign-in and signup endpoints enforce terms and use the app origin locally',async()=>{
   const signin=await fetch(`http://127.0.0.1:${appPort}/api/auth/signin`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'learner@example.test',password:'correct-password'})});assert.equal(signin.status,200);assert.equal((await signin.json()).access_token,'mock-access-token');
   const failed=await fetch(`http://127.0.0.1:${appPort}/api/auth/signin`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'learner@example.test',password:'wrong-password'})});assert.equal(failed.status,400);assert.match((await failed.json()).msg,/Invalid login credentials/);
-  const signup=await fetch(`http://127.0.0.1:${appPort}/api/auth/signup`,{method:'POST',headers:{'content-type':'application/json',origin:`http://127.0.0.1:${appPort}`},body:JSON.stringify({email:'learner@example.test',password:'correct-password'})});assert.equal(signup.status,200);assert.equal(lastSignupRedirect,`http://127.0.0.1:${appPort}`);
+  const rejectedSignup=await fetch(`http://127.0.0.1:${appPort}/api/auth/signup`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'learner@example.test',password:'correct-password'})});assert.equal(rejectedSignup.status,400);
+  const signup=await fetch(`http://127.0.0.1:${appPort}/api/auth/signup`,{method:'POST',headers:{'content-type':'application/json',origin:`http://127.0.0.1:${appPort}`},body:JSON.stringify({email:'learner@example.test',password:'correct-password',termsAccepted:true})});assert.equal(signup.status,200);assert.equal(lastSignupRedirect,`http://127.0.0.1:${appPort}`);assert.equal(signupMetadata.terms_version,'2026-11-01');assert.ok(signupMetadata.terms_accepted_at);
+});
+test('password recovery links return to the app and require the emailed recovery token to update the password',async()=>{
+  const headers={'content-type':'application/json'},route=`http://127.0.0.1:${appPort}/api/auth/recover`;
+  const requested=await fetch(route,{method:'POST',headers,body:JSON.stringify({email:'recover@example.test'})});assert.equal(requested.status,200);assert.equal(lastRecoveryRedirect,'http://127.0.0.1:4173');
+  const anonymous=await fetch(`http://127.0.0.1:${appPort}/api/auth/password`,{method:'POST',headers,body:JSON.stringify({password:'new-password-123'})});assert.equal(anonymous.status,401);
+  const updated=await fetch(`http://127.0.0.1:${appPort}/api/auth/password`,{method:'POST',headers:{...headers,authorization:'Bearer recovery-token'},body:JSON.stringify({password:'new-password-123'})});assert.equal(updated.status,200);assert.equal(updatedPassword,'new-password-123');
+});
+test('owner controls require a signed-in allowlisted account and keep the service key server-side',async()=>{
+  const base=`http://127.0.0.1:${appPort}/api/admin`,headers={'content-type':'application/json',authorization:'Bearer test-token'};
+  assert.equal((await fetch(`${base}/users`)).status,401);
+  assert.equal((await fetch(`${base}/users`,{headers:{...headers,authorization:'Bearer non-owner-token'}})).status,403);
+  const me=await(await fetch(`${base}/me`,{headers})).json();assert.equal(me.isAdmin,true);assert.equal(me.controlsReady,true);assert.equal(me.email,'owner@example.test');
+  const users=await fetch(`${base}/users`,{headers});assert.equal(users.status,200);assert.equal((await users.json()).users[0].email,'member@example.test');
+  const projects=await fetch(`${base}/projects`,{headers});assert.equal(projects.status,200);assert.equal((await projects.json()).projects[0].name,'Example API');
+  const self=await fetch(`${base}/users/11111111-1111-4111-8111-111111111111/suspend`,{method:'POST',headers,body:'{}'});assert.equal(self.status,400);
+  const suspended=await fetch(`${base}/users/22222222-2222-4222-8222-222222222222/suspend`,{method:'POST',headers,body:'{}'});assert.equal(suspended.status,200);
+  const selfDelete=await fetch(`${base}/users/11111111-1111-4111-8111-111111111111`,{method:'DELETE',headers});assert.equal(selfDelete.status,400);
+  const deleted=await fetch(`${base}/users/22222222-2222-4222-8222-222222222222`,{method:'DELETE',headers});assert.equal(deleted.status,200);
+  const projectDelete=await fetch(`${base}/projects/33333333-3333-4333-8333-333333333333`,{method:'DELETE',headers});assert.equal(projectDelete.status,200);
+});
+test('auth proxy rate limits repeated confirmation emails before they reach Supabase',async()=>{
+  const route=`http://127.0.0.1:${appPort}/api/auth/resend`,beforeCount=resendCalls,headers={'content-type':'application/json','x-forwarded-for':'198.51.100.77'};
+  const body=JSON.stringify({email:'rate-limit@example.test'}),first=await fetch(route,{method:'POST',headers,body});assert.equal(first.status,200);assert.equal(resendCalls,beforeCount+1);
+  const immediate=await fetch(route,{method:'POST',headers,body});assert.equal(immediate.status,429);assert.equal(immediate.headers.get('retry-after'),'60');assert.equal(resendCalls,beforeCount+1);
 });
 test('AI proposal endpoint authenticates and returns usable model file proposals',async()=>{
   const route=`http://127.0.0.1:${appPort}/api/generate`,body=JSON.stringify({prompt:'Add a health endpoint',files:{'main.py':'print("starter")'}});
@@ -106,5 +138,6 @@ test('production mode refuses to execute user code',async()=>{
 });
 test('Render public URL supports the production auth redirect health check',async()=>{
   const port=await freePort(),publicUrl='https://backenddev.example.onrender.com',child=spawn(process.execPath,['server.mjs'],{cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(port),NODE_ENV:'production',SUPABASE_URL:`http://127.0.0.1:${mockPort}`,SUPABASE_ANON_KEY:'test-publishable-key',APP_URL:'',RENDER_EXTERNAL_URL:publicUrl},stdio:'ignore'});
-  try{await ready(`http://127.0.0.1:${port}/api/health`,child);const health=await(await fetch(`http://127.0.0.1:${port}/api/health`)).json();assert.equal(health.multiUserReady,true);const signup=await fetch(`http://127.0.0.1:${port}/api/auth/signup`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'learner@example.test',password:'correct-password'})});assert.equal(signup.status,200);assert.equal(lastSignupRedirect,publicUrl)}finally{child.kill()}
+  try{await ready(`http://127.0.0.1:${port}/api/health`,child);const health=await(await fetch(`http://127.0.0.1:${port}/api/health`)).json();assert.equal(health.multiUserReady,true);const signup=await fetch(`http://127.0.0.1:${port}/api/auth/signup`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'learner@example.test',password:'correct-password',termsAccepted:true})});assert.equal(signup.status,200);assert.equal(lastSignupRedirect,publicUrl)}finally{child.kill()}
 });
+
