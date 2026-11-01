@@ -29,7 +29,11 @@ The dashboard activity list is stored in the current browser only. The API teste
 
 ## Multi-user deployment
 
-The repository-root `render.yaml` describes a Render Free web service and sets its application root to `BackendDev/`. The migration at `supabase/migrations/001_projects.sql` defines owner-scoped project rows protected by Postgres row-level security; run it in the Supabase SQL editor before deploying. During Blueprint setup, supply `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MODEL_API_KEY`, `MODEL_API_URL`, and `MODEL_NAME`. Render provides the public service URL automatically; BackendDev uses it for production email-confirmation redirects. After the first deploy, copy that URL into Supabase Auth → URL Configuration → Redirect URLs. Keep the Supabase service-role key server-side only; BackendDev does not need it. Render's Free service can spin down after inactivity, so first requests may take about a minute to wake it. Upgrade the service if you need always-on hosting.
+The repository-root `render.yaml` describes a Render Free web service and sets its application root to `BackendDev/`. The migration at `supabase/migrations/001_projects.sql` defines owner-scoped project rows protected by Postgres row-level security; run it in the Supabase SQL editor before deploying. The app supports confirmation resend and forgot-password email links; configure custom SMTP in Supabase for reliable delivery. Password recovery redirects back to `APP_URL`/Render's public URL, which must be listed in Supabase Auth → URL Configuration → Redirect URLs.
+
+To enable owner controls, set `APP_ADMIN_EMAILS` to your exact Supabase sign-in email. Set `SUPABASE_SECRET_KEY` to the project's server-side secret key in Render's Environment page. Do not put that key in the browser, Git, or a public `.env.example`. The Owner controls button appears only after an allowlisted account signs in. The owner console lists up to 100 accounts and 200 projects and can suspend/restore accounts. Its key must remain on the server. The included Terms and Conditions are a starter text; replace the operator contact and have it reviewed for your business and jurisdiction before public launch.
+
+Render's Free service can spin down after inactivity, so first requests may take about a minute to wake it. Upgrade the service if you need always-on hosting.
 
 For local signup, BackendDev uses the exact local app origin you opened for the email confirmation redirect. If Supabase rejects it, add that origin under **Authentication → URL Configuration → Redirect URLs**. A phone cannot open a `127.0.0.1` or `localhost` URL on your computer; phone sign-in needs the deployed public HTTPS URL added to Supabase's allowed redirects.
 
@@ -58,3 +62,4 @@ Runnable starters are Python, JavaScript / Node.js, Go, Rust, and Java. Python a
 - `app.js` — client-side interactions
 - `starter-templates.js` — generated project files and beginner CRUD templates
 - `scripts/smoke-test.mjs` — server, database schema contract, starter, runner, and production safety checks
+
