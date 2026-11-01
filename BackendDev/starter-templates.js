@@ -183,6 +183,7 @@ server.listen(3000, "127.0.0.1", () => console.log("API listening at http://127.
 #include <ws2tcpip.h>
 #pragma comment(lib, "Ws2_32.lib")
 using Socket = SOCKET;
+static const Socket invalidSocket = INVALID_SOCKET;
 static void closeSocket(Socket socket) { closesocket(socket); }
 #else
 #include <arpa/inet.h>
@@ -190,6 +191,7 @@ static void closeSocket(Socket socket) { closesocket(socket); }
 #include <sys/socket.h>
 #include <unistd.h>
 using Socket = int;
+static const Socket invalidSocket = -1;
 static void closeSocket(Socket socket) { close(socket); }
 #endif
 
@@ -199,7 +201,7 @@ int main() {
   if (WSAStartup(MAKEWORD(2, 2), &winsock) != 0) { std::cerr << "Could not start Winsock\\n"; return 1; }
 #endif
   const Socket server = socket(AF_INET, SOCK_STREAM, 0);
-  if (server < 0) { std::cerr << "Could not create socket\\n"; return 1; }
+  if (server == invalidSocket) { std::cerr << "Could not create socket\\n"; return 1; }
   sockaddr_in address{};
   address.sin_family = AF_INET;
   address.sin_port = htons(3000);
@@ -212,7 +214,7 @@ int main() {
   std::cout << "C++ API listening at http://127.0.0.1:3000/health\\n";
   while (true) {
     const Socket client = accept(server, nullptr, nullptr);
-    if (client < 0) continue;
+    if (client == invalidSocket) continue;
     char request[4096]{};
 #ifdef _WIN32
     const int bytes = recv(client, request, sizeof(request) - 1, 0);
