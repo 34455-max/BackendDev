@@ -244,6 +244,7 @@ body[data-theme="light"] .security-status{color:#24372a}
 body[data-theme="light"] .mfa-setup-panel input,body[data-theme="light"] .mfa-challenge-modal input{background:#fff;color:#18231c}
 @media(max-width:720px){.security-modal,.mfa-challenge-modal{padding:22px}.owner-alert-badge{min-width:18px;height:18px;font-size:10px}}
 .owner-launcher span{font-size:16px;color:#4b8c35}
+.smtp-setup-help{display:inline-flex;align-items:center;min-height:42px;margin-top:10px;padding:9px 12px;border:1px solid #8abd6d;border-radius:9px;background:#eff8e9;color:#315d27;font-size:14px;font-weight:700;text-decoration:none}.smtp-setup-help:hover{background:#e2f2d8;text-decoration:underline}.smtp-setup-help[hidden]{display:none!important}body[data-theme="dark"] .smtp-setup-help{background:#1b2a1e;color:#c9f2ae;border-color:#536e47}
 .feedback-launcher{display:inline-flex;align-items:center;gap:9px;margin:0 8px;padding:9px 14px;border:1px solid #93c77a;border-radius:999px;background:#eff8e9;color:#2f6429;font:650 13px/1.2 'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 14px #243e2918;transition:transform .16s,background .16s,box-shadow .16s}
 .feedback-launcher>span{display:grid;place-items:center;width:23px;height:23px;border-radius:50%;background:#dcefd2;color:#32732b;font-size:14px}
 .feedback-launcher:hover{transform:translateY(-1px);background:#e6f4df;box-shadow:0 7px 20px #243e2922}
