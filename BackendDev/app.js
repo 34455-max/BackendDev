@@ -114,6 +114,7 @@ function setAuthMode(){
   const passwordVisible=!recovering;
   document.querySelector('#passwordLabel').hidden=!passwordVisible;document.querySelector('#authPassword').hidden=!passwordVisible;document.querySelector('#authPassword').required=passwordVisible;
   document.querySelector('#passwordStrength').hidden=!(signup||updating);
+  document.querySelector('#passwordPolicyNote').hidden=signup||updating||recovering;
   document.querySelector('#authPassword').minLength=signup||updating?12:8;
   document.querySelector('#authPassword').placeholder='Enter your password';
   document.querySelector('#authPassword').autocomplete=signup||updating?'new-password':'current-password';
