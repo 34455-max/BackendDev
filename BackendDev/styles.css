@@ -169,5 +169,40 @@ body[data-theme="light"] .auth-modal label{color:#293a30}body[data-theme="light"
 .password-strength{display:grid;gap:9px;margin:12px 0 4px;padding:13px 14px;border:1px solid #64766b;border-radius:12px;background:#202b26}.password-strength[hidden]{display:none!important}.strength-heading{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:13px}.strength-heading b{font-size:14px}.strength-heading span{color:#bdc9c1;text-align:right}.strength-meter{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.strength-meter i{height:5px;border-radius:99px;background:#48534d;transition:background .2s}.strength-meter[data-score="1"] i:nth-child(-n+1),.strength-meter[data-score="2"] i:nth-child(-n+2){background:#e28a67}.strength-meter[data-score="3"] i:nth-child(-n+3),.strength-meter[data-score="4"] i:nth-child(-n+4){background:#e6c266}.strength-meter[data-score="5"] i{background:#87c85e}.password-rules{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;margin:0;padding:0;list-style:none;color:#aebbb3;font-size:12px}.password-rules li::before{content:'○';display:inline-block;width:17px;color:#84928a}.password-rules li.met{color:#d7e9d0}.password-rules li.met::before{content:'✓';color:#a4e27d}.password-strength>p{margin:0;color:#aebbb3;font-size:12px;line-height:1.45}.auth-modal .password-strength{width:100%}
 body[data-theme="light"] .password-strength{background:#f4f8f4;border-color:#d0ddd2}.password-strength{color:var(--text)}body[data-theme="light"] .strength-heading span,body[data-theme="light"] .password-rules,body[data-theme="light"] .password-strength>p{color:#586a5e}body[data-theme="light"] .password-rules li.met{color:#315b2b}body[data-theme="light"] .strength-meter i{background:#d7dfd8}
 .admin-actions{display:flex;gap:8px;flex:none}.danger-action{color:#b42318!important;border-color:#e5b4ad!important}.danger-action:hover{background:#fff0ed!important}
+/* Keep the learning and API helper panels readable with the default light theme. */
+body[data-theme="light"] .learning-overview,
+body[data-theme="light"] .getting-started,
+body[data-theme="light"] .project-empty,
+body[data-theme="light"] .spec-preview,
+body[data-theme="light"] .api-tester,
+body[data-theme="light"] .file-guide,
+body[data-theme="light"] .endpoint-guide,
+body[data-theme="light"] .request-flow{background:#fff;border-color:#d8e2da;color:#1c2a20;box-shadow:0 8px 25px #233b2b0a}
+body[data-theme="light"] .learning-overview .eyebrow,
+body[data-theme="light"] .getting-started .eyebrow{color:#42634a}
+body[data-theme="light"] .learning-overview>div:first-child p,
+body[data-theme="light"] .learning-steps article p,
+body[data-theme="light"] .getting-started .guide-steps small,
+body[data-theme="light"] .getting-started .runtime-line,
+body[data-theme="light"] .project-empty p,
+body[data-theme="light"] .spec-preview p,
+body[data-theme="light"] .api-tester p,
+body[data-theme="light"] .file-guide p,
+body[data-theme="light"] .endpoint-guide p{color:#526258}
+body[data-theme="light"] .learning-steps article{background:#f7faf7;border-color:#dce5de}
+body[data-theme="light"] .learning-steps article>b,
+body[data-theme="light"] .spec-preview b,
+body[data-theme="light"] .api-tester h3,
+body[data-theme="light"] .request-flow>b{color:#315f28}
+body[data-theme="light"] .learning-steps code,
+body[data-theme="light"] .endpoint-guide code{background:#edf4ed;color:#294c2a}
+body[data-theme="light"] .request-flow span{background:#f0f5f0;color:#26382c}
+body[data-theme="light"] .request-flow i{color:#36752c}
+body[data-theme="light"] .api-tester input,
+body[data-theme="light"] .api-tester select,
+body[data-theme="light"] .api-tester textarea{background:#fff;color:#1a2820;border-color:#cbd7ce}
+body[data-theme="light"] .output-heading{color:#26382c}
+body[data-theme="light"] .output-heading span{color:#5a6c60}
+body[data-theme="light"] .deploy-modal ol{color:#34443a}
+body[data-theme="light"] .deploy-modal .outline{color:#34433a;border-color:#cbd6ce}
 @media(max-width:520px){.admin-row{align-items:flex-start;flex-direction:column}.admin-row button{width:100%}.admin-actions{display:grid;width:100%;grid-template-columns:1fr 1fr}.terms-modal,.admin-modal{padding:22px!important}}
-
