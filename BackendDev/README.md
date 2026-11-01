@@ -11,6 +11,8 @@ BackendDev is a local backend project workspace. It includes a project dashboard
 
 Sign in with Supabase before using project creation, AI generation, execution, API testing, or exports. Project routes and runner endpoints check the user's Supabase session server-side too. `.env` and `data/` are excluded from Git. Never commit or share API keys. Restart the server after editing `.env`.
 
+New account passwords and password resets require at least 14 characters, lowercase and uppercase letters, a number, and a symbol; common password words/patterns are rejected. The form shows a live checklist. Existing users may continue signing in with their current password. Auth requests are rate limited by visitor IP and hashed email (8 sign-in attempts per IP/account per 15 minutes and 20 per email per hour). These counters are in memory on a single app instance; use a shared Redis-compatible store before scaling to multiple instances.
+
 ## Typical workflow
 
 1. Sign in or create an account and confirm its email if Supabase asks you to.
@@ -31,7 +33,7 @@ The dashboard activity list is stored in the current browser only. The API teste
 
 The repository-root `render.yaml` describes a Render Free web service and sets its application root to `BackendDev/`. The migration at `supabase/migrations/001_projects.sql` defines owner-scoped project rows protected by Postgres row-level security; run it in the Supabase SQL editor before deploying. The app supports confirmation resend and forgot-password email links; configure custom SMTP in Supabase for reliable delivery. Password recovery redirects back to `APP_URL`/Render's public URL, which must be listed in Supabase Auth → URL Configuration → Redirect URLs.
 
-To enable owner controls, set `APP_ADMIN_EMAILS` to your exact Supabase sign-in email. Set `SUPABASE_SECRET_KEY` to the project's server-side secret key in Render's Environment page. Do not put that key in the browser, Git, or a public `.env.example`. The Owner controls button appears only after an allowlisted account signs in. The owner console lists up to 100 accounts and 200 projects and can suspend/restore accounts. Its key must remain on the server. The included Terms and Conditions are a starter text; replace the operator contact and have it reviewed for your business and jurisdiction before public launch.
+To enable owner controls, set `APP_ADMIN_EMAILS` to your exact Supabase sign-in email. Set `SUPABASE_SECRET_KEY` to the project's server-side secret key in Render's Environment page. Do not put that key in the browser, Git, or a public `.env.example`. The Owner controls button appears only after an allowlisted account signs in; use your normal sign-in with that email, then select the button in the top bar. In the console, you can review up to 100 accounts and 200 projects, suspend or restore accounts, and permanently delete accounts/projects. The console explains these actions and warns before deletion. The secret key must remain on the server. The included Terms and Conditions are a starter text; replace the operator contact and have it reviewed for your business and jurisdiction before public launch.
 
 Render's Free service can spin down after inactivity, so first requests may take about a minute to wake it. Upgrade the service if you need always-on hosting.
 
