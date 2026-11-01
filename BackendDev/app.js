@@ -98,6 +98,10 @@ document.querySelectorAll('.main-nav a').forEach(a=>a.addEventListener('click',(
 document.querySelector('#projectSearch').addEventListener('input',event=>{const query=event.target.value.trim().toLowerCase();document.querySelectorAll('.project-card').forEach(card=>{card.hidden=!`${card.dataset.project} ${card.dataset.lang} ${card.textContent}`.toLowerCase().includes(query)})});
 async function refreshRuntimes(){const out=document.querySelector('#runtimeStatus');if(!requireSignIn()){out.textContent='Sign in to check installed runtimes.';return}try{const r=await api('/api/runtimes');out.textContent=`Available locally: ${Object.entries(r).filter(([,v])=>v.installed).map(([k])=>k).join(', ')||'none detected'}`}catch(error){out.textContent=error.message}}
 document.querySelector('#checkRuntimes').addEventListener('click',refreshRuntimes);
+const passwordChecks={length:value=>value.length>=14,lower:value=>/[a-z]/.test(value),upper:value=>/[A-Z]/.test(value),number:value=>/[0-9]/.test(value),symbol:value=>/[^A-Za-z0-9]/.test(value)};
+function passwordIssues(value){const missing=[];if(!passwordChecks.length(value))missing.push('at least 14 characters');if(!passwordChecks.lower(value))missing.push('a lowercase letter');if(!passwordChecks.upper(value))missing.push('an uppercase letter');if(!passwordChecks.number(value))missing.push('a number');if(!passwordChecks.symbol(value))missing.push('a symbol');if(/password|qwerty|letmein|welcome|admin|123456|iloveyou/i.test(value))missing.push('a password without common words or patterns');return missing}
+function updatePasswordStrength(){const password=document.querySelector('#authPassword').value,checks=Object.entries(passwordChecks),score=checks.filter(([,check])=>check(password)).length,meter=document.querySelector('#passwordStrengthMeter'),label=document.querySelector('#passwordStrengthLabel');meter.setAttribute('aria-valuenow',String(score));meter.dataset.score=String(score);label.textContent=score===5&&!passwordIssues(password).length?'Strong password':score>=4?'Almost there':'Add the missing requirements';for(const rule of document.querySelectorAll('.password-rules [data-rule]'))rule.classList.toggle('met',Boolean(passwordChecks[rule.dataset.rule]?.(password)))}
+document.querySelector('#authPassword').addEventListener('input',updatePasswordStrength);
 let signupMode=false,recoveryRequestMode=false,passwordUpdateMode=passwordRecoveryCallback;
 function setAuthMode(){
   const updating=passwordUpdateMode,recovering=recoveryRequestMode,signup=signupMode&&!recovering&&!updating;
@@ -109,12 +113,16 @@ function setAuthMode(){
   document.querySelector('#forgotPassword').hidden=signup||recovering||updating;
   const passwordVisible=!recovering;
   document.querySelector('#passwordLabel').hidden=!passwordVisible;document.querySelector('#authPassword').hidden=!passwordVisible;document.querySelector('#authPassword').required=passwordVisible;
+  document.querySelector('#passwordStrength').hidden=!(signup||updating);
+  document.querySelector('#authPassword').minLength=signup||updating?14:8;
+  document.querySelector('#authPassword').placeholder=signup||updating?'14+ chars, mixed case, number & symbol':'Enter your password';
   document.querySelector('#authPassword').autocomplete=signup||updating?'new-password':'current-password';
-  const confirmVisible=signup||updating;document.querySelector('#authConfirm').hidden=!confirmVisible;document.querySelector('#confirmLabel').hidden=!confirmVisible;document.querySelector('#authConfirm').required=confirmVisible;
+  const confirmVisible=signup||updating;document.querySelector('#authConfirm').hidden=!confirmVisible;document.querySelector('#confirmLabel').hidden=!confirmVisible;document.querySelector('#authConfirm').required=confirmVisible;document.querySelector('#authConfirm').minLength=confirmVisible?14:8;
   document.querySelector('#termsAcceptLabel').hidden=!signup;document.querySelector('#termsAccept').required=signup;
   document.querySelector('.auth-access-note').hidden=recovering||updating;
   document.querySelector('#resendConfirm').hidden=true;
   document.querySelector('#authFootnote').textContent=signup?'Free to get started · Your projects stay private':recovering?'The reset link expires according to your Supabase Auth settings.':'Private by design · Your projects belong to your account';
+  updatePasswordStrength();
 }
 function openAuthDialog(){if(!authDialog.open)authDialog.showModal();setTimeout(()=>document.querySelector('#authEmail').focus(),20)}
 document.querySelector('#accountButton').addEventListener('click',()=>{if(accessToken){sessionStorage.removeItem('backenddev.accessToken');accessToken='';location.reload()}else openAuthDialog()});
@@ -126,6 +134,7 @@ document.querySelector('#closeTerms').addEventListener('click',()=>document.quer
 document.querySelector('#authForm').addEventListener('submit',async event=>{
   event.preventDefault();const errorBox=document.querySelector('#authError'),submit=document.querySelector('#authSubmit');errorBox.textContent='';document.querySelector('#resendConfirm').hidden=true;
   const updating=passwordUpdateMode,recovering=recoveryRequestMode,creating=signupMode&&!recovering&&!updating;
+  if((creating||updating)&&passwordIssues(document.querySelector('#authPassword').value).length){errorBox.textContent='Use a unique password with at least 14 characters, lowercase and uppercase letters, a number, and a symbol. Avoid common words and patterns.';document.querySelector('#authPassword').focus();return}
   if((creating||updating)&&document.querySelector('#authPassword').value!==document.querySelector('#authConfirm').value){errorBox.textContent='The passwords do not match. Please check both fields.';document.querySelector('#authConfirm').focus();return}
   if(creating&&!document.querySelector('#termsAccept').checked){errorBox.textContent='Please accept the Terms and Conditions before creating an account.';return}
   submit.disabled=true;submit.textContent=updating?'Updating password…':recovering?'Sending reset link…':creating?'Creating account…':'Signing in…';
