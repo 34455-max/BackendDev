@@ -47,6 +47,7 @@ test('serves the app and reports API health',async()=>{
   const script=await (await fetch(`http://127.0.0.1:${appPort}/app.js`)).text(),ids=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]));for(const [,id] of script.matchAll(/querySelector\(['"]#([\w-]+)/g))assert.ok(ids.has(id),`app.js refers to missing #${id}`);
   assert.match(script,/querySelector\('#newProject'\)\.addEventListener/);assert.match(script,/querySelector\('#accountButton'\)\.addEventListener/);assert.match(script,/querySelector\('#authForm'\)\.addEventListener/);assert.match(script,/openAuthDialog\(\)/);assert.match(script,/session expired\/i/);assert.match(script,/applyTheme/);assert.match(script,/if\(!accessToken\)projects=\[\];renderProjects\(\);renderActivity\(\);syncProjects\(\);/);assert.match(html,/id="accessStatus"/);assert.match(html,/if \(location\.protocol === 'file:'\)/);assert.match(html,/id="themeToggle"/);assert.match(html,/id="authThemeToggle"/);assert.match(html,/auth-access-note/);
   const css=await (await fetch(`http://127.0.0.1:${appPort}/styles.css`)).text();assert.match(css,/body\{font-size:16px/);assert.match(css,/\.learning-steps/);assert.match(css,/body\[data-theme="light"\]/);
+  assert.match(css,/@media\(max-width:820px\)/);assert.match(css,/\.sidebar nav\.main-nav\{display:flex/);assert.match(css,/\.content\{width:100%;max-width:100%;min-width:0/);
   const health=await (await fetch(`http://127.0.0.1:${appPort}/api/health`)).json();assert.equal(health.status,'ok');
 });
 test('creates beginner CRUD starter templates that pass their generated checks',async()=>{
@@ -104,6 +105,6 @@ test('production mode refuses to execute user code',async()=>{
   finally { child.kill(); }
 });
 test('Render public URL supports the production auth redirect health check',async()=>{
-  const port=await freePort(),child=spawn(process.execPath,['server.mjs'],{cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(port),NODE_ENV:'production',SUPABASE_URL:'https://supabase.example.test',SUPABASE_ANON_KEY:'test-publishable-key',APP_URL:'',RENDER_EXTERNAL_URL:'https://backenddev.example.onrender.com'},stdio:'ignore'});
-  try{await ready(`http://127.0.0.1:${port}/api/health`,child);const health=await(await fetch(`http://127.0.0.1:${port}/api/health`)).json();assert.equal(health.multiUserReady,true)}finally{child.kill()}
+  const port=await freePort(),publicUrl='https://backenddev.example.onrender.com',child=spawn(process.execPath,['server.mjs'],{cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(port),NODE_ENV:'production',SUPABASE_URL:`http://127.0.0.1:${mockPort}`,SUPABASE_ANON_KEY:'test-publishable-key',APP_URL:'',RENDER_EXTERNAL_URL:publicUrl},stdio:'ignore'});
+  try{await ready(`http://127.0.0.1:${port}/api/health`,child);const health=await(await fetch(`http://127.0.0.1:${port}/api/health`)).json();assert.equal(health.multiUserReady,true);const signup=await fetch(`http://127.0.0.1:${port}/api/auth/signup`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'learner@example.test',password:'correct-password'})});assert.equal(signup.status,200);assert.equal(lastSignupRedirect,publicUrl)}finally{child.kill()}
 });
