@@ -42,13 +42,15 @@ function authRateLimit(req,kind,email){
 }
 function rejectLimitedAuth(res,seconds){res.setHeader('retry-after',String(seconds));return send(res,429,{error:`Too many ${seconds<60?'requests':'email requests'}. Wait ${seconds<60?`${seconds} seconds`:`about ${Math.ceil(seconds/60)} minutes`} before trying again.`,error_code:'app_auth_rate_limited'})}
 function passwordPolicyError(password){
- const missing=[];if(password.length<14)missing.push('at least 14 characters');if(!/[a-z]/.test(password))missing.push('a lowercase letter');if(!/[A-Z]/.test(password))missing.push('an uppercase letter');if(!/[0-9]/.test(password))missing.push('a number');if(!/[^A-Za-z0-9]/.test(password))missing.push('a symbol');
+ const missing=[];if(password.length<12)missing.push('at least 12 characters');if(!/[a-z]/.test(password))missing.push('a lowercase letter');if(!/[A-Z]/.test(password))missing.push('an uppercase letter');if(!/[0-9]/.test(password))missing.push('a number');if(!/[^A-Za-z0-9]/.test(password))missing.push('a symbol');
  if(/password|qwerty|letmein|welcome|admin|123456|iloveyou/i.test(password))missing.push('a password that avoids common words and patterns');
  return missing.length?`Choose a stronger password with ${missing.join(', ')}.`:'';
 }
 const supabaseAdminKey=()=>process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY;
 async function requireAdmin(req){const user=await requireUser(req),admins=String(process.env.APP_ADMIN_EMAILS||'').split(',').map(email=>email.trim().toLowerCase()).filter(Boolean);if(!user.email||!admins.includes(user.email.toLowerCase()))throw Object.assign(Error('This account is not an authorized BackendDev owner.'),{status:403});if(!supabaseAdminKey())throw Object.assign(Error('Owner controls are not configured yet. Set SUPABASE_SECRET_KEY on the app server.'),{status:503});return user}
 async function supabaseAdmin(path,options={}){const key=supabaseAdminKey(),headers={apikey:key,'content-type':'application/json',...(options.headers||{})};if(!key.startsWith('sb_secret_'))headers.authorization=`Bearer ${key}`;const r=await fetch(`${process.env.SUPABASE_URL}${path}`,{...options,headers});const raw=await r.text();let data={};try{data=raw?JSON.parse(raw):{}}catch{}if(!r.ok)throw Object.assign(Error(data.msg||data.message||data.error_description||data.error||`Supabase admin request failed (${r.status})`),{status:r.status>=500?502:r.status});return data}
+const feedbackWindows=new Map();
+function feedbackRateLimit(userId,now=Date.now()){let window=feedbackWindows.get(userId);if(!window||now>=window.resetAt){window={count:0,resetAt:now+60*60_000};feedbackWindows.set(userId,window)}if(feedbackWindows.size>5000)for(const [key,item] of feedbackWindows)if(now>=item.resetAt)feedbackWindows.delete(key);if(window.count>=5)return Math.max(1,Math.ceil((window.resetAt-now)/1000));window.count++;return 0}
 const runSessions=new Map(),MAX_RUN_SESSIONS=4,MAX_RUN_OUTPUT=40000;
 function recordOutput(session,stream,chunk){session.output=(session.output+chunk.toString()).slice(-MAX_RUN_OUTPUT)}
 function stopRun(id){const session=runSessions.get(id);if(!session)return false;session.child.kill();return true}
@@ -78,6 +80,18 @@ const url=new URL(req.url,'http://localhost');if(url.pathname.startsWith('/api/'
  const adminUserMatch=url.pathname.match(/^\/api\/admin\/users\/([\w-]+)\/(suspend|restore)$/);if(req.method==='POST'&&adminUserMatch){const owner=await requireAdmin(req);if(adminUserMatch[1]===owner.id)return send(res,400,{error:'You cannot suspend your own owner account.'});const ban_duration=adminUserMatch[2]==='suspend'?'876000h':'none';const changed=await supabaseAdmin(`/auth/v1/admin/users/${adminUserMatch[1]}`,{method:'PUT',body:JSON.stringify({ban_duration})});return send(res,200,{ok:true,user:{id:changed.user?.id||adminUserMatch[1],bannedUntil:changed.user?.banned_until||null}})}
  const deleteUserMatch=url.pathname.match(/^\/api\/admin\/users\/([\w-]+)$/);if(req.method==='DELETE'&&deleteUserMatch){const owner=await requireAdmin(req);if(deleteUserMatch[1]===owner.id)return send(res,400,{error:'You cannot delete your own owner account.'});await supabaseAdmin(`/auth/v1/admin/users/${deleteUserMatch[1]}`,{method:'DELETE'});return send(res,200,{ok:true})}
  if(req.method==='GET'&&url.pathname==='/api/admin/projects'){await requireAdmin(req);const rows=await supabaseAdmin('/rest/v1/projects?select=id,owner_id,name,language,framework,status,created_at,updated_at&order=updated_at.desc&limit=200');return send(res,200,{projects:rows})}
+ if(req.method==='POST'&&url.pathname==='/api/feedback'){
+  const user=await requireUser(req);if(!supabaseAdminKey())return send(res,503,{error:'The feedback inbox is not configured on the app server yet.'});
+  const b=await body(req),categories=['Problem','Account','AI','Suggestion','Other'],category=String(b.category||''),subject=typeof b.subject==='string'?b.subject.trim():'',message=typeof b.message==='string'?b.message.trim():'';
+  if(!categories.includes(category))return send(res,400,{error:'Choose a feedback category.'});
+  if(subject.length<3||subject.length>120)return send(res,400,{error:'Feedback title must be between 3 and 120 characters.'});
+  if(message.length<10||message.length>3000)return send(res,400,{error:'Feedback message must be between 10 and 3,000 characters.'});
+  const wait=feedbackRateLimit(user.id);if(wait)return rejectLimitedAuth(res,wait);
+  const rows=await supabaseAdmin('/rest/v1/user_feedback',{method:'POST',body:JSON.stringify({user_id:user.id,user_email:user.email||'Unknown',category,subject,message}),headers:{prefer:'return=representation'}});
+  return send(res,201,{ok:true,id:rows[0]?.id||null});
+ }
+ if(req.method==='GET'&&url.pathname==='/api/admin/feedback'){await requireAdmin(req);const rows=await supabaseAdmin('/rest/v1/user_feedback?select=id,user_id,user_email,category,subject,message,status,created_at,updated_at&order=created_at.desc&limit=200');return send(res,200,{feedback:rows})}
+ const feedbackStatusMatch=url.pathname.match(/^\/api\/admin\/feedback\/([a-f0-9-]+)$/i);if(req.method==='PUT'&&feedbackStatusMatch){await requireAdmin(req);const id=feedbackStatusMatch[1];if(!/^[a-f0-9-]{36}$/i.test(id))return send(res,400,{error:'Invalid feedback ID.'});const {status}=await body(req);if(!['New','In review','Resolved'].includes(status))return send(res,400,{error:'Choose New, In review, or Resolved.'});await supabaseAdmin(`/rest/v1/user_feedback?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({status,updated_at:new Date().toISOString()}),headers:{prefer:'return=minimal'}});return send(res,200,{ok:true})}
  const deleteProjectMatch=url.pathname.match(/^\/api\/admin\/projects\/([\w-]+)$/);if(req.method==='DELETE'&&deleteProjectMatch){await requireAdmin(req);await supabaseAdmin(`/rest/v1/projects?id=eq.${encodeURIComponent(deleteProjectMatch[1])}`,{method:'DELETE',headers:{prefer:'return=minimal'}});return send(res,200,{ok:true})}
  if(req.method==='POST'&&url.pathname==='/api/auth/signup'){
   if(!supabaseEnabled())return send(res,503,{error:'Supabase is not configured on the BackendDev server.'});
