@@ -76,6 +76,7 @@ test('creates beginner CRUD starter templates that pass their generated checks',
   assert.match(html,/<select id="stackChoice" name="stackChoice" required/);
   assert.match(html,/id="workspaceLanguage"/);assert.match(html,/id="changeLanguage"/);
   assert.match(html,/C\+\+ · MinGW or GCC/);assert.match(html,/Assembly · NASM \(Linux x86-64/);
+  assert.match(html,/<span>Assembly · Linux<\/span>/);
   for(const [language,entry] of [['Python','main.py'],['JavaScript','index.js'],['Go','main.go'],['Rust','main.rs'],['Java','Main.java'],['C++','main.cpp'],['Assembly','main.asm']]) {
     const files=createStarterFiles(language,'Choice API','Manage products');
     assert.ok(files[entry],`${language} selection must generate its matching entry file`);
