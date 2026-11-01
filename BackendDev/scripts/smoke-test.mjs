@@ -80,7 +80,7 @@ test('creates beginner CRUD starter templates that pass their generated checks',
   for(const [language,entry] of [['Python','main.py'],['JavaScript','index.js'],['Go','main.go'],['Rust','main.rs'],['Java','Main.java'],['C++','main.cpp'],['Assembly','main.asm']]) {
     const files=createStarterFiles(language,'Choice API','Manage products');
     assert.ok(files[entry],`${language} selection must generate its matching entry file`);
-    if(['C++','Assembly'].includes(language))assert.match(files['README.md'],/GET \/health/);else assert.match(files['README.md'],/GET \/products/);
+    if(['Python','JavaScript'].includes(language))assert.match(files['README.md'],/GET \/products/);else if(['Go','C++','Assembly'].includes(language))assert.match(files['README.md'],/GET \/health/);else assert.match(files['README.md'],/not an HTTP server/);
   }
   const python=createStarterFiles('Python','Shop API','Manage products, customers and orders');
   assert.match(python['main.py'],/RESOURCE = "products"/);assert.match(python['main.py'],/Access-Control-Allow-Origin/);assert.match(python['main.py'],/def do_PUT/);
