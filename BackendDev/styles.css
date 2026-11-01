@@ -262,6 +262,32 @@ body[data-theme="light"] .mfa-setup-panel input,body[data-theme="light"] .mfa-ch
 .feedback-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .feedback-actions .outline{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;white-space:nowrap}
 .feedback-actions select{min-width:130px}
+/* Modern, high-contrast Terms actions and owner status dashboard. */
+.terms-accept .inline-link,.footer-right .text-link{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #a7c99c;border-radius:999px;background:#f2f8ef;color:#32752b;text-decoration:none;font-weight:700;line-height:1.2;cursor:pointer;transition:transform .16s,background .16s,border-color .16s,box-shadow .16s}
+.terms-accept .inline-link:hover,.footer-right .text-link:hover{transform:translateY(-1px);background:#e6f4df;border-color:#80b86d;box-shadow:0 4px 12px #263d281a}
+.terms-accept .inline-link:focus-visible,.footer-right .text-link:focus-visible{outline:3px solid #78b55b;outline-offset:2px}
+body[data-theme="dark"] .terms-accept .inline-link,body[data-theme="dark"] .footer-right .text-link{background:#202c22;border-color:#48633f;color:#b7f28b}
+.admin-system{margin:18px 0;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--panel2)}
+.admin-system .section-head{align-items:center;gap:12px;flex-wrap:wrap}.admin-system .section-head h3{margin:0}.admin-system .section-head p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.admin-system-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.admin-system-grid article{display:grid;gap:7px;padding:13px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.admin-system-grid article span{font-size:12px;color:var(--muted)}.admin-system-grid article b{font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+.admin-runtime-note{margin:12px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+#apiTesterGuidance{line-height:1.6}
+@media(max-width:520px){.admin-system-grid{grid-template-columns:1fr}.admin-system .section-head .outline{width:100%}.terms-accept .inline-link{padding:4px 8px}}
+.card-footer a{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border:1px solid #91bd7b;border-radius:999px;background:#21351e;color:#d9ffbc;font-weight:750;font-size:13px;line-height:1.2;box-shadow:0 3px 12px #0002;transition:transform .16s,background .16s,border-color .16s,box-shadow .16s}
+.card-footer a:hover{transform:translateY(-1px);background:#2e4a29;border-color:#acd78f;box-shadow:0 6px 16px #0003}
+.card-footer a b{color:#c9ff9e;padding:0;font-size:16px}
+body[data-theme="light"] .card-footer a{background:#e7f5e1;color:#24591d;border-color:#8bbd77}
+body[data-theme="light"] .card-footer a:hover{background:#d9efcf;border-color:#70a95b}
+body[data-theme="light"] .card-footer a b{color:#367c28}
+.language-switcher{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:9px;margin:0 0 14px;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
+.language-switcher label{font-size:13px;font-weight:700;color:var(--text)}
+.language-switcher select{min-width:0;min-height:42px;padding:8px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);font:inherit}
+.language-switcher .outline{min-height:42px;padding:8px 14px;border-radius:9px;color:var(--text);font-size:13px;font-weight:700}
+.language-switcher p{grid-column:1/-1;margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.lang-icon.cpp{color:#9ab6ff;background:#1d2a42}.lang-icon.asm{color:#ecc79c;background:#372a1f}
+@media(max-width:560px){.language-switcher{grid-template-columns:1fr 1fr}.language-switcher label{grid-column:1/-1}.language-switcher .outline{grid-column:1/-1;width:100%}}
 .admin-project-modal{max-width:900px;width:min(900px,calc(100% - 32px))}
 #adminProjectDialog{width:min(900px,calc(100% - 32px))}
 .admin-project-modal label{display:block;margin:15px 0 7px;color:var(--muted);font-weight:650}
@@ -272,14 +298,3 @@ body[data-theme="light"] .feedback-launcher{background:#eff8e9;color:#2f6429}
 body[data-theme="light"] .admin-project-content{background:#f6f9f6;color:#26382c}
 @media(max-width:720px){.admin-overview{grid-template-columns:1fr}.admin-modal{padding:23px}.feedback-actions{width:100%}.feedback-actions>*{flex:1}.admin-project-modal{padding:22px}}
 
-
-/* Modern Terms actions, owner readiness dashboard, and readable API guidance. */
-.terms-accept .inline-link,.footer-right .text-link{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #a7c99c;border-radius:999px;background:#f2f8ef;color:#32752b;text-decoration:none;font-weight:700;line-height:1.2;cursor:pointer;transition:transform .16s,background .16s,border-color .16s,box-shadow .16s}
-.terms-accept .inline-link:hover,.footer-right .text-link:hover{transform:translateY(-1px);background:#e6f4df;border-color:#80b86d;box-shadow:0 4px 12px #263d281a}
-.terms-accept .inline-link:focus-visible,.footer-right .text-link:focus-visible{outline:3px solid #78b55b;outline-offset:2px}
-body[data-theme="dark"] .terms-accept .inline-link,body[data-theme="dark"] .footer-right .text-link{background:#202c22;border-color:#48633f;color:#b7f28b}
-.admin-system{margin:18px 0;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--panel2)}
-.admin-system .section-head{align-items:center;gap:12px;flex-wrap:wrap}.admin-system .section-head h3{margin:0}.admin-system .section-head p{margin:4px 0 0;color:var(--muted);font-size:13px}
-.admin-system-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.admin-system-grid article{display:grid;gap:7px;padding:13px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
-.admin-system-grid article span{font-size:12px;color:var(--muted)}.admin-system-grid article b{font-size:14px;line-height:1.35;overflow-wrap:anywhere}.admin-runtime-note{margin:12px 0 0;color:var(--muted);font-size:12px;line-height:1.5}#apiTesterGuidance{line-height:1.6}
-@media(max-width:520px){.admin-system-grid{grid-template-columns:1fr}.admin-system .section-head .outline{width:100%}.terms-accept .inline-link{padding:4px 8px}}

@@ -74,11 +74,12 @@ test('creates beginner CRUD starter templates that pass their generated checks',
   const html=await(await fetch(`http://127.0.0.1:${appPort}/`)).text();
   assert.match(html,/<label for="stackChoice">Backend language<\/label>/);
   assert.match(html,/<select id="stackChoice" name="stackChoice" required/);
-  assert.match(html,/determines the generated source files and which local runtime BackendDev uses/);
-  for(const [language,entry] of [['Python','main.py'],['JavaScript','index.js'],['Go','main.go'],['Rust','main.rs'],['Java','Main.java']]) {
+  assert.match(html,/id="workspaceLanguage"/);assert.match(html,/id="changeLanguage"/);
+  assert.match(html,/C\+\+ · MinGW or GCC/);assert.match(html,/Assembly · NASM \(Linux x86-64/);
+  for(const [language,entry] of [['Python','main.py'],['JavaScript','index.js'],['Go','main.go'],['Rust','main.rs'],['Java','Main.java'],['C++','main.cpp'],['Assembly','main.asm']]) {
     const files=createStarterFiles(language,'Choice API','Manage products');
     assert.ok(files[entry],`${language} selection must generate its matching entry file`);
-    assert.match(files['README.md'],/GET \/products/);
+    if(['C++','Assembly'].includes(language))assert.match(files['README.md'],/GET \/health/);else assert.match(files['README.md'],/GET \/products/);
   }
   const python=createStarterFiles('Python','Shop API','Manage products, customers and orders');
   assert.match(python['main.py'],/RESOURCE = "products"/);assert.match(python['main.py'],/Access-Control-Allow-Origin/);assert.match(python['main.py'],/def do_PUT/);
@@ -87,6 +88,11 @@ test('creates beginner CRUD starter templates that pass their generated checks',
   const javascript=createStarterFiles('JavaScript','Shop API','Manage products');assert.match(javascript['index.js'],/const resource = "products"/);assert.match(javascript['index.js'],/"DELETE"/);
   const jsRun=await fetch(`http://127.0.0.1:${appPort}/api/run`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer test-token'},body:JSON.stringify({language:'javascript',task:'test',files:javascript})});
   assert.equal(jsRun.status,200);const jsResult=await jsRun.json();assert.equal(jsResult.exitCode,0,jsResult.output);
+  const cpp=createStarterFiles('C++','Health API','');assert.match(cpp['main.cpp'],/GET/);assert.match(cpp['README.md'],/MinGW.*GCC/);
+  const cppRun=await fetch(`http://127.0.0.1:${appPort}/api/run/native`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer test-token'},body:JSON.stringify({language:'C++',task:'test',files:cpp})});
+  const cppResult=await cppRun.json();assert.equal(cppRun.status,200,JSON.stringify(cppResult));assert.ok(cppResult.exitCode===0||/unrecognized command line option.*c\+\+17/i.test(cppResult.output),cppResult.output);
+  const assembly=createStarterFiles('Assembly','Health API','');assert.match(assembly['main.asm'],/global _start/);assert.match(assembly['README.md'],/Linux x86-64/);
+  const asmRun=await fetch(`http://127.0.0.1:${appPort}/api/run/native`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer test-token'},body:JSON.stringify({language:'Assembly',task:'test',files:assembly})});assert.equal(asmRun.status,200);const asmResult=await asmRun.json();assert.equal(asmResult.exitCode,1);assert.match(asmResult.output,/Linux x86-64/);
 });
 test('creates and updates projects using only real Supabase columns',async()=>{
   const headers={'content-type':'application/json',authorization:'Bearer test-token'};

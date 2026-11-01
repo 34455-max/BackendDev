@@ -16,3 +16,4 @@ revoke all on table public.user_feedback from anon, authenticated;
 grant all on table public.user_feedback to service_role;
 create index if not exists user_feedback_created on public.user_feedback(created_at desc);
 create index if not exists user_feedback_status_created on public.user_feedback(status, created_at desc);
+
