@@ -281,13 +281,13 @@ body[data-theme="dark"] .terms-accept .inline-link,body[data-theme="dark"] .foot
 body[data-theme="light"] .card-footer a{background:#e7f5e1;color:#24591d;border-color:#8bbd77}
 body[data-theme="light"] .card-footer a:hover{background:#d9efcf;border-color:#70a95b}
 body[data-theme="light"] .card-footer a b{color:#367c28}
-.language-switcher{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:9px;margin:0 0 14px;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
-.language-switcher label{font-size:13px;font-weight:700;color:var(--text)}
+.language-switcher{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px 16px;margin:0 0 14px;padding:16px 18px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
+.language-switcher label{grid-column:1/-1;margin:0 0 1px;font-size:14px;font-weight:700;color:var(--text)}
 .language-switcher select{min-width:0;min-height:42px;padding:8px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);font:inherit}
-.language-switcher .outline{min-height:42px;padding:8px 14px;border-radius:9px;color:var(--text);font-size:13px;font-weight:700}
+.language-switcher .outline{min-height:42px;min-width:156px;padding:8px 16px;border-radius:9px;color:var(--text);font-size:13px;font-weight:700;white-space:nowrap}
 .language-switcher p{grid-column:1/-1;margin:0;color:var(--muted);font-size:12px;line-height:1.45}
 .lang-icon.cpp{color:#9ab6ff;background:#1d2a42}.lang-icon.asm{color:#ecc79c;background:#372a1f}
-@media(max-width:560px){.language-switcher{grid-template-columns:1fr 1fr}.language-switcher label{grid-column:1/-1}.language-switcher .outline{grid-column:1/-1;width:100%}}
+@media(max-width:560px){.language-switcher{grid-template-columns:minmax(0,1fr);gap:10px}.language-switcher label,.language-switcher select,.language-switcher .outline{grid-column:1;width:100%}}
 .admin-project-modal{max-width:900px;width:min(900px,calc(100% - 32px))}
 #adminProjectDialog{width:min(900px,calc(100% - 32px))}
 .admin-project-modal label{display:block;margin:15px 0 7px;color:var(--muted);font-weight:650}

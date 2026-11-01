@@ -95,6 +95,22 @@ test('creates beginner CRUD starter templates that pass their generated checks',
   const assembly=createStarterFiles('Assembly','Health API','');assert.match(assembly['main.asm'],/global _start/);assert.match(assembly['README.md'],/Linux x86-64/);
   const asmRun=await fetch(`http://127.0.0.1:${appPort}/api/run/native`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer test-token'},body:JSON.stringify({language:'Assembly',task:'test',files:assembly})});assert.equal(asmRun.status,200);const asmResult=await asmRun.json();assert.equal(asmResult.exitCode,1);assert.match(asmResult.output,/Linux x86-64/);
 });
+test('builds and exercises a sample Tasks API through the BackendDev local runner',async()=>{
+  const files=createStarterFiles('JavaScript','Community Tasks API','Manage team tasks'),headers={'content-type':'application/json',authorization:'Bearer test-token'};
+  const started=await fetch(`http://127.0.0.1:${appPort}/api/run/start`,{method:'POST',headers,body:JSON.stringify({language:'JavaScript',files})});assert.equal(started.status,200);const run=await started.json();assert.ok(run.sessionId);assert.equal(run.running,true,run.output);let health;
+  try{
+    for(let attempt=0;attempt<30;attempt++){try{health=await fetch('http://127.0.0.1:3000/health');if(health.ok)break}catch{}await wait(100)}
+    assert.equal(health?.status,200,'generated API should listen on port 3000');assert.deepEqual(await health.json(),{status:'ok'});
+    const preflight=await fetch('http://127.0.0.1:3000/tasks',{method:'OPTIONS'});assert.equal(preflight.status,204);assert.equal(preflight.headers.get('access-control-allow-origin'),'*');
+    const created=await fetch('http://127.0.0.1:3000/tasks',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:'Test the API',done:false})});assert.equal(created.status,201);const task=await created.json();assert.equal(task.id,1);
+    const list=await fetch('http://127.0.0.1:3000/tasks');assert.deepEqual(await list.json(),[task]);
+    const read=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`);assert.equal((await read.json()).name,'Test the API');
+    const updated=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({done:true})});assert.equal((await updated.json()).done,true);
+    const invalid=await fetch('http://127.0.0.1:3000/tasks',{method:'POST',headers:{'content-type':'application/json'},body:'{invalid'});assert.equal(invalid.status,400);
+    const missing=await fetch('http://127.0.0.1:3000/tasks/999');assert.equal(missing.status,404);
+    const removed=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`,{method:'DELETE'});assert.equal(removed.status,200);const gone=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`);assert.equal(gone.status,404);
+  }finally{await fetch(`http://127.0.0.1:${appPort}/api/run/${run.sessionId}`,{method:'DELETE',headers:{authorization:'Bearer test-token'}})}
+});
 test('creates and updates projects using only real Supabase columns',async()=>{
   const headers={'content-type':'application/json',authorization:'Bearer test-token'};
   const payload={name:'Store API',language:'Python',framework:'Standard library',description:'Manage products and orders',status:'Draft',files:{'main.py':'print("ok")'},updated:'Created just now'};
