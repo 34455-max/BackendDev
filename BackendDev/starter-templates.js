@@ -4,6 +4,17 @@ export function resourceForIdea(idea = '') {
   return groups.find(([plural, singular]) => text.includes(plural) || text.includes(singular))?.[0] || 'items';
 }
 
+function makeOpenApi(name, resource, hasCrud) {
+  const jsonResponse = schema => ({description:'JSON response',content:{'application/json':{schema}}});
+  const item = {type:'object',properties:{id:{type:'integer'},name:{type:'string'}},additionalProperties:true};
+  const paths = {'/health':{get:{summary:'Check service health',responses:{'200':jsonResponse({type:'object',properties:{status:{type:'string',example:'ok'}}})}}}};
+  if (hasCrud) {
+    paths[`/${resource}`]={get:{summary:`List ${resource}`,responses:{'200':jsonResponse({type:'array',items:{$ref:'#/components/schemas/Record'}})}},post:{summary:`Create ${resource.slice(0,-1)||'record'}`,requestBody:{required:true,content:{'application/json':{schema:{type:'object',additionalProperties:true}}}},responses:{'201':jsonResponse({$ref:'#/components/schemas/Record'}),'400':{description:'Invalid JSON object'}}}};
+    paths[`/${resource}/{id}`]={parameters:[{name:'id',in:'path',required:true,schema:{type:'string'}}],get:{summary:`Read one ${resource.slice(0,-1)||'record'}`,responses:{'200':jsonResponse({$ref:'#/components/schemas/Record'}),'404':{description:'Record not found'}}},put:{summary:'Replace record fields',requestBody:{required:true,content:{'application/json':{schema:{type:'object',additionalProperties:true}}}},responses:{'200':jsonResponse({$ref:'#/components/schemas/Record'}),'404':{description:'Record not found'}}},patch:{summary:'Update record fields',requestBody:{required:true,content:{'application/json':{schema:{type:'object',additionalProperties:true}}}},responses:{'200':jsonResponse({$ref:'#/components/schemas/Record'}),'404':{description:'Record not found'}}},delete:{summary:'Delete record',responses:{'200':jsonResponse({type:'object',properties:{deleted:{type:'boolean'}}}),'404':{description:'Record not found'}}}};
+  }
+  return JSON.stringify({openapi:'3.1.0',info:{title:name,version:'1.0.0',description:'Generated API contract. Starter records are in memory and are cleared when the service stops.'},servers:[{url:'http://127.0.0.1:3000'}],paths,...(hasCrud?{components:{schemas:{Record:item}}}:{})},null,2)+'\n';
+}
+
 export function createStarterFiles(language, name, idea) {
   const resource = resourceForIdea(idea);
   const files = {
@@ -336,11 +347,15 @@ func main() {
  http.ListenAndServe("127.0.0.1:3000", nil)
 }
 `;
+    files['README.md'] = `# ${name}\n\n## Go HTTP starter\n${idea}\n\nThis starter exposes GET /health using Go's standard HTTP library. Add route handlers and persistent storage for your application.\n\n## Run and test\nOpen this project in BackendDev and choose Run API server. Try http://127.0.0.1:3000/health. The hosted BackendDev service does not execute user code.\n`;
   } else if (language === 'Rust') {
     files['main.rs'] = 'fn main() { println!("Starter program. Add an HTTP framework to serve API routes."); }\n';
+    files['README.md'] = `# ${name}\n\n## Rust console starter\n${idea}\n\nThis starter is a runnable Rust console program, not an HTTP server yet. Select a web framework such as Axum or Actix Web, then add routes and a database before treating it as an API.\n`;
   } else if (language === 'Java') {
     files['Main.java'] = 'public class Main {\n  public static void main(String[] args) {\n    System.out.println("Starter program. Add a web framework to serve API routes.");\n  }\n}\n';
+    files['README.md'] = `# ${name}\n\n## Java console starter\n${idea}\n\nThis starter is a runnable Java console program, not an HTTP server yet. Add a web framework such as Spring Boot, API routes, and a database before treating it as an API.\n`;
   }
+  if (['Python','JavaScript','Go','C++','Assembly'].includes(language)) files['openapi.json']=makeOpenApi(name,resource,['Python','JavaScript'].includes(language));
   return files;
 }
 

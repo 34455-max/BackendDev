@@ -286,6 +286,9 @@ body[data-theme="light"] .card-footer a b{color:#367c28}
 .language-switcher select{min-width:0;min-height:42px;padding:8px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);font:inherit}
 .language-switcher .outline{min-height:42px;min-width:156px;padding:8px 16px;border-radius:9px;color:var(--text);font-size:13px;font-weight:700;white-space:nowrap}
 .language-switcher p{grid-column:1/-1;margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.review-confirm{display:flex;align-items:center;gap:9px;margin:12px 0;color:var(--text);font-size:14px;font-weight:650;line-height:1.4;cursor:pointer}
+.review-confirm[hidden]{display:none!important}.review-confirm input{width:18px;height:18px;accent-color:#75c949;flex:none}
+#applyAi:disabled{opacity:.48;cursor:not-allowed;filter:saturate(.5)}
 .lang-icon.cpp{color:#9ab6ff;background:#1d2a42}.lang-icon.asm{color:#ecc79c;background:#372a1f}
 @media(max-width:560px){.language-switcher{grid-template-columns:minmax(0,1fr);gap:10px}.language-switcher label,.language-switcher select,.language-switcher .outline{grid-column:1;width:100%}}
 .admin-project-modal{max-width:900px;width:min(900px,calc(100% - 32px))}
