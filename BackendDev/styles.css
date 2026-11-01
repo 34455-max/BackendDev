@@ -206,6 +206,8 @@ body[data-theme="light"] .output-heading span{color:#5a6c60}
 body[data-theme="light"] .deploy-modal ol{color:#34443a}
 body[data-theme="light"] .deploy-modal .outline{color:#34433a;border-color:#cbd6ce}
 .feedback-modal{width:100%;max-width:700px}
+.password-policy-note{margin:9px 0 0;color:#aebbb3;font-size:13px;line-height:1.5}
+#passwordPolicyNote[hidden]{display:none!important}
 #feedbackDialog{width:min(700px,calc(100% - 32px))}
 .feedback-modal label{display:block;margin:15px 0 6px;font-size:14px;font-weight:650;color:#cbd5ce}
 .feedback-modal input,.feedback-modal select,.feedback-modal textarea{display:block;width:100%;min-height:44px;padding:10px 12px;border:1px solid #46534b;border-radius:9px;background:#121815;color:#f0f4f0;font:15px/1.45 'DM Sans',sans-serif}
@@ -217,6 +219,7 @@ body[data-theme="light"] .deploy-modal .outline{color:#34433a;border-color:#cbd6
 .feedback-info>p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;color:var(--text)}
 .feedback-actions select{min-width:130px;min-height:40px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);font:inherit}
 body[data-theme="light"] .feedback-modal label{color:#293a30}
+body[data-theme="light"] .password-policy-note{color:#526258}
 body[data-theme="light"] .feedback-modal input,body[data-theme="light"] .feedback-modal select,body[data-theme="light"] .feedback-modal textarea{background:#fff;color:#19261f;border-color:#c5d2c8}
 body[data-theme="light"] #feedbackStatus{color:#735515}
 @media(max-width:720px){.feedback-modal{padding:22px}.feedback-row{align-items:stretch}.feedback-actions select{width:100%}}
