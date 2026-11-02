@@ -2,7 +2,7 @@ Warning: fs was declared with const; use let for reassignable variables.
 Warning: s was declared with const; use let for reassignable variables.
 name: BackendDev CI
 
-on:
+'on':
   push:
     branches: [master, main]
   pull_request:
@@ -27,3 +27,4 @@ jobs:
         run: npm --prefix BackendDev run check
       - name: Run backend and integration tests
         run: npm --prefix BackendDev test
+
