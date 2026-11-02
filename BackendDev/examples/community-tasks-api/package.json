@@ -1,0 +1,8 @@
+{
+  "name": "community-tasks-api",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --check index.js"
+  }
+}
