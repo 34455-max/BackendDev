@@ -20,6 +20,7 @@ before(async () => {
     let raw=''; for await (const chunk of req) raw += chunk;
     res.setHeader('content-type','application/json');
     if (req.url === '/auth/v1/user'&&req.method==='GET') { const token=req.headers.authorization,member=token==='Bearer non-owner-token',aal1=token==='Bearer owner-aal1-token';res.end(JSON.stringify({id:member?'44444444-4444-4444-8444-444444444444':'11111111-1111-4111-8111-111111111111',email:member?'member@example.test':'owner@example.test',aal:aal1?'aal1':'aal2'})); return; }
+    if(req.url==='/auth/v1/factors'&&req.method==='GET'&&req.headers.authorization==='Bearer owner-aal2-factors-405-token'){res.statusCode=405;res.end(JSON.stringify({}));return;}
     if (req.url === '/auth/v1/factors'&&req.method==='GET') { res.end(JSON.stringify({all:[{id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',factor_type:'totp',status:'verified'}],totp:[{id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',factor_type:'totp',status:'verified'}],phone:[]}));return; }
     if (req.url === '/auth/v1/factors'&&req.method==='POST') { res.end(JSON.stringify({id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',factor_type:'totp',status:'unverified',totp:{qr_code:'<svg/>',secret:'TEST-SECRET',uri:'otpauth://totp/BackendDev:test?secret=TEST-SECRET&issuer=BackendDev'}}));return; }
     if (req.url.endsWith('/challenge')&&req.method==='POST') { res.end(JSON.stringify({id:'challenge-test'}));return; }
@@ -189,6 +190,7 @@ test('owner controls require verified TOTP and MFA setup endpoints proxy to Supa
   const verify=await fetch(`${root}/auth/mfa/factors/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/verify`,{method:'POST',headers:ready,body:JSON.stringify({challenge_id:'challenge-test',code:'123456'})});assert.equal((await verify.json()).access_token,'mfa-access-token');
   const remove=await fetch(`${root}/auth/mfa/factors/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/unenroll`,{method:'DELETE',headers:ready});assert.equal(remove.status,200);
   const setup=await(await fetch(`${root}/admin/setup-status`,{headers:ready})).json();assert.ok(setup.checks.find(check=>check.key==='adminApi')?.ok);assert.ok(setup.checks.find(check=>check.key==='feedback')?.ok);assert.ok(setup.checks.find(check=>check.key==='mfa')?.ok);
+  const aal2={'content-type':'application/json',authorization:'Bearer owner-aal2-factors-405-token'},ownerStatus=await(await fetch(`${root}/admin/me`,{headers:aal2})).json();assert.equal(ownerStatus.mfaVerified,true);assert.equal(ownerStatus.mfaEnrolled,true);assert.equal(ownerStatus.mfaCheckAvailable,true);const ownerSetup=await(await fetch(`${root}/admin/setup-status`,{headers:aal2})).json();assert.equal(ownerSetup.checks.find(check=>check.key==='mfa')?.ok,true);assert.equal((await fetch(`${root}/admin/overview`,{headers:aal2})).status,200);
 });
 test('auth proxy rate limits repeated confirmation emails before they reach Supabase',async()=>{
   const route=`http://127.0.0.1:${appPort}/api/auth/resend`,beforeCount=resendCalls,headers={'content-type':'application/json','x-forwarded-for':'198.51.100.77'};
