@@ -12,7 +12,7 @@ function makeOpenApi(name, resource, hasCrud) {
     paths[`/${resource}`]={get:{summary:`List ${resource}`,responses:{'200':jsonResponse({type:'array',items:{$ref:'#/components/schemas/Record'}})}},post:{summary:`Create ${resource.slice(0,-1)||'record'}`,requestBody:{required:true,content:{'application/json':{schema:{type:'object',additionalProperties:true}}}},responses:{'201':jsonResponse({$ref:'#/components/schemas/Record'}),'400':{description:'Invalid JSON object'}}}};
     paths[`/${resource}/{id}`]={parameters:[{name:'id',in:'path',required:true,schema:{type:'string'}}],get:{summary:`Read one ${resource.slice(0,-1)||'record'}`,responses:{'200':jsonResponse({$ref:'#/components/schemas/Record'}),'404':{description:'Record not found'}}},put:{summary:'Replace record fields',requestBody:{required:true,content:{'application/json':{schema:{type:'object',additionalProperties:true}}}},responses:{'200':jsonResponse({$ref:'#/components/schemas/Record'}),'404':{description:'Record not found'}}},patch:{summary:'Update record fields',requestBody:{required:true,content:{'application/json':{schema:{type:'object',additionalProperties:true}}}},responses:{'200':jsonResponse({$ref:'#/components/schemas/Record'}),'404':{description:'Record not found'}}},delete:{summary:'Delete record',responses:{'200':jsonResponse({type:'object',properties:{deleted:{type:'boolean'}}}),'404':{description:'Record not found'}}}};
   }
-  return JSON.stringify({openapi:'3.1.0',info:{title:name,version:'1.0.0',description:'Generated API contract. Starter records are in memory and are cleared when the service stops.'},servers:[{url:'http://127.0.0.1:3000'}],paths,...(hasCrud?{components:{schemas:{Record:item}}}:{})},null,2)+'\n';
+  return JSON.stringify({openapi:'3.1.0',info:{title:name,version:'1.0.0',description:hasCrud?'Generated API contract. Python and JavaScript starters persist records in SQLite.':'Generated API contract for the current health route.'},servers:[{url:'http://127.0.0.1:3000'}],paths,...(hasCrud?{components:{schemas:{Record:item}}}:{})},null,2)+'\n';
 }
 
 export function createStarterFiles(language, name, idea) {
@@ -26,11 +26,24 @@ export function createStarterFiles(language, name, idea) {
 from urllib.parse import urlparse
 import os
 import json
+import sqlite3
 
-# Temporary in-memory data; use a database for persistent records.
-items = []
-next_id = 1
 RESOURCE = "${resource}"
+DATABASE_PATH = os.environ.get("DATABASE_PATH", "backend.sqlite3")
+
+def open_database():
+    connection = sqlite3.connect(DATABASE_PATH, timeout=10)
+    connection.row_factory = sqlite3.Row
+    connection.execute("CREATE TABLE IF NOT EXISTS " + RESOURCE + " (id INTEGER PRIMARY KEY AUTOINCREMENT, data_json TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
+    return connection
+
+def load_items():
+    with open_database() as connection:
+        rows = connection.execute("SELECT id, data_json FROM " + RESOURCE + " ORDER BY id").fetchall()
+    return [{**json.loads(row["data_json"]), "id": row["id"]} for row in rows]
+
+items = load_items()
+next_id = max((item["id"] for item in items), default=0) + 1
 
 def send(handler, status, payload):
     body = json.dumps(payload).encode()
@@ -81,6 +94,8 @@ class Handler(BaseHTTPRequestHandler):
         data["id"] = next_id
         next_id += 1
         items.append(data)
+        with open_database() as connection:
+            connection.execute("INSERT INTO " + RESOURCE + " (id, data_json) VALUES (?, ?)", (data["id"], json.dumps({key: value for key, value in data.items() if key != "id"})))
         return send(self, 201, data)
 
     def do_PUT(self):
@@ -95,6 +110,8 @@ class Handler(BaseHTTPRequestHandler):
             return send(self, 404, {"error": "Item not found"})
         data.pop("id", None)
         found.update(data)
+        with open_database() as connection:
+            connection.execute("UPDATE " + RESOURCE + " SET data_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (json.dumps({key: value for key, value in found.items() if key != "id"}), found["id"]))
         return send(self, 200, found)
 
     do_PATCH = do_PUT
@@ -106,6 +123,8 @@ class Handler(BaseHTTPRequestHandler):
         for index, item in enumerate(items):
             if str(item["id"]) == parts[1]:
                 items.pop(index)
+                with open_database() as connection:
+                    connection.execute("DELETE FROM " + RESOURCE + " WHERE id = ?", (item["id"],))
                 return send(self, 200, {"deleted": True})
         return send(self, 404, {"error": "Item not found"})
 
@@ -117,10 +136,17 @@ if __name__ == "__main__":
     HTTPServer((host, port), Handler).serve_forever()
 `;
     files['test_main.py'] = `import json
+import os
+import tempfile
 import threading
 import unittest
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
+os.environ["DATABASE_PATH"] = os.path.join(tempfile.gettempdir(), "backenddev-generated-test-" + str(os.getpid()) + ".sqlite3")
+try:
+    os.remove(os.environ["DATABASE_PATH"])
+except FileNotFoundError:
+    pass
 import main
 
 class BackendApiTests(unittest.TestCase):
@@ -152,6 +178,7 @@ class BackendApiTests(unittest.TestCase):
     def test_create_read_update_delete_flow(self):
         status, created = self.request("POST", "/" + main.RESOURCE, {"name": "Ada"})
         self.assertEqual(status, 201)
+        self.assertEqual(main.load_items()[0]["name"], "Ada", "created rows must be stored in SQLite")
         item_id = created["id"]
         self.assertEqual(self.request("GET", "/" + main.RESOURCE + "/" + str(item_id))[1]["name"], "Ada")
         self.assertEqual(self.request("PUT", "/" + main.RESOURCE + "/" + str(item_id), {"name": "Grace"})[1]["name"], "Grace")
@@ -163,8 +190,13 @@ if __name__ == "__main__":
 `;
   } else if (language === 'JavaScript') {
     files['index.js'] = `const http = require("node:http");
-const records = [];
-let nextId = 1;
+  const { DatabaseSync } = require("node:sqlite");
+  const path = require("node:path");
+  const db = new DatabaseSync(process.env.DATABASE_PATH || path.join(process.cwd(), "backend.sqlite3"));
+  const recordsTable = "${resource}";
+  db.exec("CREATE TABLE IF NOT EXISTS " + recordsTable + " (id INTEGER PRIMARY KEY AUTOINCREMENT, data_json TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+  const records = db.prepare("SELECT id, data_json FROM " + recordsTable + " ORDER BY id").all().map(row => ({ ...JSON.parse(row.data_json), id: row.id }));
+  let nextId = (db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM " + recordsTable).get().id || 0) + 1;
 const resource = "${resource}";
 function send(res, status, data) {
   res.writeHead(status, { "content-type": "application/json", "access-control-allow-origin": "*", "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS", "access-control-allow-headers": "Content-Type" });
@@ -186,16 +218,16 @@ const server = http.createServer(async (req, res) => {
   if (parts[0] !== resource) return send(res, 404, { error: "Route not found" });
   if (req.method === "GET" && parts.length === 1) return send(res, 200, records);
   if (req.method === "GET" && parts.length === 2) { const item = records.find(record => String(record.id) === parts[1]); return item ? send(res, 200, item) : send(res, 404, { error: "Item not found" }); }
-  if (req.method === "POST" && parts.length === 1) { try { const item = { ...await readBody(req), id: nextId++ }; records.push(item); return send(res, 201, item); } catch { return send(res, 400, { error: "Expected valid JSON" }); } }
-  if (["PUT", "PATCH"].includes(req.method) && parts.length === 2) { try { const item = records.find(record => String(record.id) === parts[1]); if (!item) return send(res, 404, { error: "Item not found" }); const updates = await readBody(req); delete updates.id; Object.assign(item, updates); return send(res, 200, item); } catch { return send(res, 400, { error: "Expected valid JSON under 1 MB" }); } }
-  if (req.method === "DELETE" && parts.length === 2) { const index = records.findIndex(record => String(record.id) === parts[1]); if (index < 0) return send(res, 404, { error: "Item not found" }); records.splice(index, 1); return send(res, 200, { deleted: true }); }
+  if (req.method === "POST" && parts.length === 1) { try { const item = { ...await readBody(req), id: nextId++ }; records.push(item); db.prepare("INSERT INTO " + recordsTable + " (id, data_json) VALUES (?, ?)").run(item.id, JSON.stringify(Object.fromEntries(Object.entries(item).filter(([key]) => key !== "id")))); return send(res, 201, item); } catch { return send(res, 400, { error: "Expected valid JSON" }); } }
+  if (["PUT", "PATCH"].includes(req.method) && parts.length === 2) { try { const item = records.find(record => String(record.id) === parts[1]); if (!item) return send(res, 404, { error: "Item not found" }); const updates = await readBody(req); delete updates.id; Object.assign(item, updates); db.prepare("UPDATE " + recordsTable + " SET data_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(JSON.stringify(Object.fromEntries(Object.entries(item).filter(([key]) => key !== "id"))), item.id); return send(res, 200, item); } catch { return send(res, 400, { error: "Expected valid JSON under 1 MB" }); } }
+  if (req.method === "DELETE" && parts.length === 2) { const index = records.findIndex(record => String(record.id) === parts[1]); if (index < 0) return send(res, 404, { error: "Item not found" }); const [item] = records.splice(index, 1); db.prepare("DELETE FROM " + recordsTable + " WHERE id = ?").run(item.id); return send(res, 200, { deleted: true }); }
   return send(res, 404, { error: "Route not found" });
 });
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1");
 server.listen(port, host, () => console.log("API listening at http://" + host + ":" + port));
 `;
-    files['package.json'] = JSON.stringify({ name: name.toLowerCase().replace(/[^a-z0-9-]/g, '-'), version: '1.0.0', scripts: { start: 'node index.js', test: 'node --check index.js' } }, null, 2);
+    files['package.json'] = JSON.stringify({ name: name.toLowerCase().replace(/[^a-z0-9-]/g, '-'), version: '1.0.0', engines: { node: '>=22.5' }, scripts: { start: 'node index.js', test: 'node --check index.js' } }, null, 2);
   } else if (language === 'C++') {
     files['main.cpp'] = `#include <iostream>
 #include <string>
@@ -383,6 +415,10 @@ func main() {
     files['README.md'] = `# ${name}\n\n## Java console starter\n${idea}\n\nThis starter is a runnable Java console program, not an HTTP server yet. Add a web framework such as Spring Boot, API routes, and a database before treating it as an API.\n`;
   }
   if (['Python','JavaScript','Go','C++','Assembly'].includes(language)) files['openapi.json']=makeOpenApi(name,resource,['Python','JavaScript'].includes(language));
+  files['migrations/001_initial_schema.sql'] = `CREATE TABLE IF NOT EXISTS ${resource} (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  data_json TEXT NOT NULL,\n  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n`;
+  files['DATABASE.md'] = `# Database setup\n\nThis starter includes a SQLite schema in migrations/001_initial_schema.sql. ${['Python','JavaScript'].includes(language) ? 'Its CRUD routes read and write this SQLite database automatically.' : `The ${language} starter includes the schema, but its current API code does not yet connect to SQLite. Add a database driver and wire CRUD handlers before expecting persistence.`}\n\nThe starter stores each record's submitted fields as JSON in one resource table. This keeps the first API easy to explore, but it does not infer relational tables, foreign keys, or field validation from your idea. Design those explicitly before using complex business data.\n\nFor Python, SQLite is included with Python. Set DATABASE_PATH to choose the database file. For JavaScript, use Node.js 22.5 or newer; node:sqlite is built in, and DATABASE_PATH selects the file. Keep the database file out of Git if it contains real data.\n\nSQLite is suitable for local development and a single-process service with durable disk. For multiple service instances or a hosted platform with ephemeral storage, use managed PostgreSQL, a PostgreSQL driver, and durable backups. This export does not provision a hosted database. Never put database passwords in source files.\n`;
+  files['README.md'] = files['README.md'].replace('Records are in memory and reset when the server stops. Connect a database before using real data.', ['Python','JavaScript'].includes(language) ? 'Python and JavaScript starters store CRUD records in SQLite. See DATABASE.md and migrations/001_initial_schema.sql. Other language starters include the schema but need a database driver connected to the API code.' : 'This starter does not yet connect its API handlers to a database. See DATABASE.md for the included SQLite schema and integration notes.');
+  files['.gitignore'] = `backend.sqlite3\n*.sqlite3\nnode_modules/\n__pycache__/\n.env\n`;
   return files;
 }
 

@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import net from 'node:net';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { createStarterFiles, resourceForIdea } from '../starter-templates.js';
 
 const root = new URL('../', import.meta.url);
@@ -86,13 +89,15 @@ test('creates beginner CRUD starter templates that pass their generated checks',
   for(const [language,entry] of [['Python','main.py'],['JavaScript','index.js'],['Go','main.go'],['Rust','main.rs'],['Java','Main.java'],['C++','main.cpp'],['Assembly','main.asm']]) {
     const files=createStarterFiles(language,'Choice API','Manage products');
     assert.ok(files[entry],`${language} selection must generate its matching entry file`);
+    assert.match(files['migrations/001_initial_schema.sql'],/CREATE TABLE IF NOT EXISTS products/);
+    assert.match(files['DATABASE.md'],language==='Python'||language==='JavaScript'?/CRUD routes read and write this SQLite database automatically/:/does not yet connect to SQLite/);
     if(['Python','JavaScript'].includes(language))assert.match(files['README.md'],/GET \/products/);else if(['Go','C++','Assembly'].includes(language))assert.match(files['README.md'],/GET \/health/);else assert.match(files['README.md'],/not an HTTP server/);
   }
   const python=createStarterFiles('Python','Shop API','Manage products, customers and orders');
   assert.match(python['main.py'],/RESOURCE = "products"/);assert.match(python['main.py'],/Access-Control-Allow-Origin/);assert.match(python['main.py'],/def do_PUT/);
   const pythonRun=await fetch(`http://127.0.0.1:${appPort}/api/run`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer test-token'},body:JSON.stringify({language:'python',task:'test',files:python})});
   assert.equal(pythonRun.status,200);const pythonResult=await pythonRun.json();assert.equal(pythonResult.exitCode,0,pythonResult.output);assert.match(pythonResult.output,/Ran 2 tests/);
-  const javascript=createStarterFiles('JavaScript','Shop API','Manage products');assert.match(javascript['index.js'],/const resource = "products"/);assert.match(javascript['index.js'],/"DELETE"/);
+  const javascript=createStarterFiles('JavaScript','Shop API','Manage products');assert.match(javascript['index.js'],/const resource = "products"/);assert.match(javascript['index.js'],/"DELETE"/);assert.match(javascript['index.js'],/node:sqlite/);assert.equal(JSON.parse(javascript['package.json']).engines.node,'>=22.5');assert.match(javascript['.gitignore'],/backend\.sqlite3/);
   const jsRun=await fetch(`http://127.0.0.1:${appPort}/api/run`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer test-token'},body:JSON.stringify({language:'javascript',task:'test',files:javascript})});
   assert.equal(jsRun.status,200);const jsResult=await jsRun.json();assert.equal(jsResult.exitCode,0,jsResult.output);
   const cpp=createStarterFiles('C++','Health API','');assert.match(cpp['main.cpp'],/GET/);assert.match(cpp['README.md'],/MinGW.*GCC/);
@@ -116,6 +121,19 @@ test('builds and exercises a sample Tasks API through the BackendDev local runne
     const missing=await fetch('http://127.0.0.1:3000/tasks/999');assert.equal(missing.status,404);
     const removed=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`,{method:'DELETE'});assert.equal(removed.status,200);const gone=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`);assert.equal(gone.status,404);
   }finally{await fetch(`http://127.0.0.1:${appPort}/api/run/${run.sessionId}`,{method:'DELETE',headers:{authorization:'Bearer test-token'}})}
+});
+test('generated Node CRUD data survives an API process restart',async()=>{
+  const files=createStarterFiles('JavaScript','Persistent Tasks API','Manage team tasks'),dir=await fs.mkdtemp(path.join(os.tmpdir(),'backenddev-sqlite-')),port=await freePort(),dbPath=path.join(dir,'records.sqlite3');
+  await fs.writeFile(path.join(dir,'index.js'),files['index.js']);
+  const start=()=>spawn(process.execPath,[path.join(dir,'index.js')],{cwd:dir,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',DATABASE_PATH:dbPath},stdio:'ignore'});
+  const waitForApi=async child=>{for(let i=0;i<40;i++){if(child.exitCode!==null)throw new Error('Generated API exited early');try{const response=await fetch(`http://127.0.0.1:${port}/health`);if(response.ok)return}catch{}await wait(100)}throw new Error('Generated SQLite API did not start')};
+  let child=start();
+  try{
+    await waitForApi(child);
+    const created=await fetch(`http://127.0.0.1:${port}/tasks`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:'Survive restart'})});assert.equal(created.status,201);const row=await created.json();
+    child.kill();await new Promise(resolve=>child.once('exit',resolve));child=start();await waitForApi(child);
+    const restored=await fetch(`http://127.0.0.1:${port}/tasks/${row.id}`);assert.equal(restored.status,200);assert.deepEqual(await restored.json(),row);
+  }finally{child.kill();await new Promise(resolve=>child.once('exit',resolve));await fs.rm(dir,{recursive:true,force:true})}
 });
 test('creates and updates projects using only real Supabase columns',async()=>{
   const headers={'content-type':'application/json',authorization:'Bearer test-token'};
