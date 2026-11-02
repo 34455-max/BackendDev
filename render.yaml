@@ -1,3 +1,5 @@
+Warning: fs was declared with const; use let for reassignable variables.
+Warning: s was declared with const; use let for reassignable variables.
 services:
   - type: web
     name: backenddev
@@ -18,10 +20,11 @@ services:
         sync: false
       - key: SUPABASE_SECRET_KEY
         sync: false
+      - key: GITHUB_TOKEN_ENCRYPTION_KEY
+        sync: false
       - key: MODEL_API_KEY
         sync: false
       - key: MODEL_API_URL
         sync: false
       - key: MODEL_NAME
         sync: false
-

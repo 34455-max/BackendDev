@@ -1,3 +1,5 @@
+Warning: fs was declared with const; use let for reassignable variables.
+Warning: s was declared with const; use let for reassignable variables.
 # BackendDev
 
 BackendDev is a local backend project workspace. It includes a project dashboard, project creation, editable starter files, project export, a local runner, and an OpenAI-compatible model connection.
@@ -35,6 +37,19 @@ AI proposals are shown as a per-file diff. Review the changed lines and check th
 
 Use **Run project readiness review** after importing or editing code to check for common production gaps such as missing tests, API contracts, persistent storage, authentication, environment templates, and deployment files. The scan also flags some high-confidence leaked-key patterns, dynamic execution, and wildcard CORS. It is a source heuristic, not a vulnerability scanner, and cannot certify that an application is secure or production-ready.
 
+### Continuous integration
+
+The repository includes a GitHub Actions workflow at `.github/workflows/ci.yml`. Each push and pull request targeting `master` or `main` runs syntax checks and the full BackendDev test suite on Node.js 20 and 22. To require these checks before merging, enable branch protection or a ruleset for your default branch in GitHub and select both `verify (20)` and `verify (22)` as required status checks.
+
+### GitHub repository and branch workflow
+
+In a project workspace, expand **GitHub workflow**. Create a fine-grained personal access token restricted to the repositories you intend to use, with **Metadata: read**, **Contents: read and write**, and **Pull requests: write**. These permissions cover repository/branch listing, import, branch creation, commit publishing, and opening pull requests; see GitHub’s [Git reference](https://docs.github.com/en/rest/git/refs) and [pull request](https://docs.github.com/en/rest/pulls/pulls#create-a-pull-request) endpoint requirements. BackendDev sends the token to its server, validates it with GitHub, encrypts it using AES-256-GCM, and stores only ciphertext in a private Supabase table. Each account has its own token. Disconnect removes the stored token.
+
+Before connecting users, run `supabase/migrations/003_github_connections.sql` in the Supabase SQL Editor and configure `GITHUB_TOKEN_ENCRYPTION_KEY` in Render. Generate a key locally with Node.js: `node --input-type=commonjs -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`. Save the output directly in Render's environment settings; do not paste it into chat, GitHub, the app, or this example file. Keep a secure backup: changing this key makes saved tokens unreadable, so users will need to reconnect.
+
+Select a repository to view its branches. **Import selected branch** creates a new private BackendDev project from that branch; common secrets, dependency folders, and binary files are skipped, with the same 150-file/500-KB limits. **Create branch** creates a branch from the repository default branch. **Commit current project** adds or updates project files on the selected branch after confirmation. It does not delete remote-only files. Select the feature branch and choose **Create pull request** to open a GitHub PR against the repository default branch. GitHub handles review, checks, and merging. Publishing directly to a protected default branch will usually be rejected.
+
+The GitHub panel needs Supabase, the server-side Supabase key, the migration, an encryption key, and a fine-grained token for each user. GitHub integration is not available until those are configured. Tokens are not stored in browser storage or returned by the API.
 Use the Light mode / Dark mode button in the header or sign-in panel to choose a theme; BackendDev remembers the choice in that browser. If an AI request reports HTTP 429 or no credits, add credits in the provider account. If it reports HTTP 404, check the exact model ID and API endpoint in `.env`.
 
 The Python and JavaScript beginner starters create working in-memory CRUD REST APIs with a health check, collection/detail routes, CORS for the built-in API tester, and tests. Their sample records reset when the backend stops; connect a database for persistent data. Go includes an HTTP health endpoint. Rust and Java are runnable console starters that explain where to add a web framework. C++ creates a small native `/health` HTTP service and requires a modern C++17 compiler (GCC 7+ or current MinGW); it is a practical backend language. Assembly creates a low-level `/health` HTTP service for Linux x86-64 using NASM and GNU ld; on Windows, use WSL. Assembly is specialized and platform-specific, not a beginner-friendly general-purpose backend choice. Build, Test, and Run are local-only; hosted code execution is disabled until an isolated worker is configured. The app does not install framework dependencies.
@@ -82,4 +97,3 @@ Runnable starters are Python, JavaScript / Node.js, Go, Rust, and Java. Python a
 - `app.js` — client-side interactions
 - `starter-templates.js` — generated project files and beginner CRUD templates
 - `scripts/smoke-test.mjs` — server, database schema contract, starter, runner, and production safety checks
-
