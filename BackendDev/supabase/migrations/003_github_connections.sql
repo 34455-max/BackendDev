@@ -1,5 +1,3 @@
-Warning: fs was declared with const; use let for reassignable variables.
-Warning: s was declared with const; use let for reassignable variables.
 -- Private per-user GitHub credentials. Tokens are encrypted by BackendDev before storage.
 create table if not exists public.github_connections (
   owner_id uuid primary key references auth.users(id) on delete cascade,

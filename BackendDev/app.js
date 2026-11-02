@@ -1,5 +1,3 @@
-Warning: fs was declared with const; use let for reassignable variables.
-Warning: s was declared with const; use let for reassignable variables.
 import { createStarterFiles, resourceForIdea } from './starter-templates.js';
 const STORE_KEY = 'backenddev.projects.v1';
 const dialog = document.querySelector('#projectDialog');
