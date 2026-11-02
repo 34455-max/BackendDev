@@ -24,6 +24,7 @@ export function createStarterFiles(language, name, idea) {
   if (language === 'Python') {
     files['main.py'] = `from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
+import os
 import json
 
 # Temporary in-memory data; use a database for persistent records.
@@ -64,6 +65,8 @@ class Handler(BaseHTTPRequestHandler):
     def read_json(self):
         try:
             length = int(self.headers.get("Content-Length", 0))
+            if length < 0 or length > 1_000_000:
+                return None
             return json.loads(self.rfile.read(length) or b"{}")
         except (ValueError, json.JSONDecodeError):
             return None
@@ -90,6 +93,7 @@ class Handler(BaseHTTPRequestHandler):
         found = next((item for item in items if str(item["id"]) == parts[1]), None)
         if not found:
             return send(self, 404, {"error": "Item not found"})
+        data.pop("id", None)
         found.update(data)
         return send(self, 200, found)
 
@@ -106,9 +110,11 @@ class Handler(BaseHTTPRequestHandler):
         return send(self, 404, {"error": "Item not found"})
 
 if __name__ == "__main__":
-    print("Your API is running at http://127.0.0.1:3000")
+    host = os.environ.get("HOST") or ("0.0.0.0" if os.environ.get("PORT") else "127.0.0.1")
+    port = int(os.environ.get("PORT", "3000"))
+    print(f"Your API is running on {host}:{port}")
     print("Try GET /health and CRUD /${resource}")
-    HTTPServer(("127.0.0.1", 3000), Handler).serve_forever()
+    HTTPServer((host, port), Handler).serve_forever()
 `;
     files['test_main.py'] = `import json
 import threading
@@ -166,8 +172,11 @@ function send(res, status, data) {
 }
 async function readBody(req) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  return JSON.parse(Buffer.concat(chunks).toString() || "{}");
+  let size = 0;
+  for await (const chunk of req) { size += chunk.length; if (size > 1_000_000) throw new Error("Request body is too large"); chunks.push(chunk); }
+  const value = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Expected a JSON object");
+  return value;
 }
 const server = http.createServer(async (req, res) => {
   const pathname = new URL(req.url, "http://localhost").pathname;
@@ -178,16 +187,19 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && parts.length === 1) return send(res, 200, records);
   if (req.method === "GET" && parts.length === 2) { const item = records.find(record => String(record.id) === parts[1]); return item ? send(res, 200, item) : send(res, 404, { error: "Item not found" }); }
   if (req.method === "POST" && parts.length === 1) { try { const item = { ...await readBody(req), id: nextId++ }; records.push(item); return send(res, 201, item); } catch { return send(res, 400, { error: "Expected valid JSON" }); } }
-  if (["PUT", "PATCH"].includes(req.method) && parts.length === 2) { try { const item = records.find(record => String(record.id) === parts[1]); if (!item) return send(res, 404, { error: "Item not found" }); Object.assign(item, await readBody(req)); return send(res, 200, item); } catch { return send(res, 400, { error: "Expected valid JSON" }); } }
+  if (["PUT", "PATCH"].includes(req.method) && parts.length === 2) { try { const item = records.find(record => String(record.id) === parts[1]); if (!item) return send(res, 404, { error: "Item not found" }); const updates = await readBody(req); delete updates.id; Object.assign(item, updates); return send(res, 200, item); } catch { return send(res, 400, { error: "Expected valid JSON under 1 MB" }); } }
   if (req.method === "DELETE" && parts.length === 2) { const index = records.findIndex(record => String(record.id) === parts[1]); if (index < 0) return send(res, 404, { error: "Item not found" }); records.splice(index, 1); return send(res, 200, { deleted: true }); }
   return send(res, 404, { error: "Route not found" });
 });
-server.listen(3000, "127.0.0.1", () => console.log("API listening at http://127.0.0.1:3000"));
+const port = Number(process.env.PORT || 3000);
+const host = process.env.HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1");
+server.listen(port, host, () => console.log("API listening at http://" + host + ":" + port));
 `;
     files['package.json'] = JSON.stringify({ name: name.toLowerCase().replace(/[^a-z0-9-]/g, '-'), version: '1.0.0', scripts: { start: 'node index.js', test: 'node --check index.js' } }, null, 2);
   } else if (language === 'C++') {
     files['main.cpp'] = `#include <iostream>
 #include <string>
+#include <cstdlib>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
@@ -215,14 +227,22 @@ int main() {
   if (server == invalidSocket) { std::cerr << "Could not create socket\\n"; return 1; }
   sockaddr_in address{};
   address.sin_family = AF_INET;
-  address.sin_port = htons(3000);
-  inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
-  if (bind(server, reinterpret_cast<sockaddr*>(&address), sizeof(address)) < 0 || listen(server, 8) < 0) {
-    std::cerr << "Could not listen on 127.0.0.1:3000 (is the port already in use?)\\n";
+  const char* portValue = std::getenv("PORT");
+  const int port = portValue ? std::atoi(portValue) : 3000;
+  const char* hostValue = std::getenv("HOST");
+  if (!hostValue) hostValue = portValue ? "0.0.0.0" : "127.0.0.1";
+  if (port < 1 || port > 65535 || inet_pton(AF_INET, hostValue, &address.sin_addr) != 1) {
+    std::cerr << "Set PORT to a valid TCP port and HOST to an IPv4 address.\\n";
     closeSocket(server);
     return 1;
   }
-  std::cout << "C++ API listening at http://127.0.0.1:3000/health\\n";
+  address.sin_port = htons(static_cast<unsigned short>(port));
+  if (bind(server, reinterpret_cast<sockaddr*>(&address), sizeof(address)) < 0 || listen(server, 8) < 0) {
+    std::cerr << "Could not listen on the requested host and port (is the port already in use?)\\n";
+    closeSocket(server);
+    return 1;
+  }
+  std::cout << "C++ API listening at http://" << hostValue << ":" << port << "/health\\n";
   while (true) {
     const Socket client = accept(server, nullptr, nullptr);
     if (client == invalidSocket) continue;
@@ -248,7 +268,8 @@ int main() {
   return 0;
 }
 `;
-    files['README.md'] = `# ${name}\n\n## C++ backend starter\n${idea}\n\nThis is a small native HTTP health service. It answers GET /health with JSON and includes CORS headers for the browser API tester. It demonstrates a server loop and HTTP response; add routes, request parsing, and a database as you learn.\n\n## Build and run\nInstall a C++17 compiler (MinGW on Windows or GCC on Linux/macOS). Choose Build to compile, Test to check source syntax, or Run API server to listen on 127.0.0.1:3000.\n`;
+    files['README.md'] = `# ${name}\n\n## C++ backend starter\n${idea}\n\nThis is a small native HTTP health service. It answers GET /health with JSON and includes CORS headers for the browser API tester. It demonstrates a server loop and HTTP response; add routes, request parsing, authentication, and a database as you learn.\n\n## Build and run\nInstall a C++17 compiler (MinGW on Windows or GCC on Linux/macOS). Choose Build to compile, Test to check source syntax, or Run API server. Local runs listen on 127.0.0.1:3000; deployment uses PORT and binds to 0.0.0.0.\n\n## Production limits\nThis health-service starter has no CRUD routes or persistent storage. Its CORS policy is open for learning. Add a database, authentication, input validation, rate limits, and a restricted CORS origin before using real data or public users.\n`;
+    files['Dockerfile'] = `FROM gcc:14\nWORKDIR /app\nCOPY main.cpp ./main.cpp\nRUN g++ -std=c++17 main.cpp -o backend\nENV PORT=10000\nEXPOSE 10000\nCMD ["./backend"]\n`;
   } else if (language === 'Assembly') {
     files['main.asm'] = `; BackendDev Assembly starter: Linux x86-64, NASM, and GNU ld required.
 ; This small HTTP service returns a health response on port 3000.
@@ -337,17 +358,23 @@ _start:
 `;
     files['README.md'] = `# ${name}\n\n## Assembly backend starter\n${idea}\n\nThis starter is a tiny HTTP health service written in x86-64 Linux assembly. It responds with JSON on GET /health. Assembly can power backend services, but is uncommon for full web APIs; it is architecture-specific and requires Linux x86-64, NASM, and GNU ld. On Windows, use WSL.\n\n## Build and run\nUse NASM to assemble main.asm, GNU ld to link it, then run the resulting backend binary. The default port is 3000. The hosted BackendDev service does not execute user code.\n`;
   } else if (language === 'Go') {
+    files['go.mod'] = `module backenddev-generated\n\ngo 1.22\n`;
     files['main.go'] = `package main
 
-import ("fmt"; "net/http")
+import ("fmt"; "net"; "net/http"; "os")
 
 func main() {
  http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { w.Header().Set("Content-Type", "application/json"); w.Header().Set("Access-Control-Allow-Origin", "*"); fmt.Fprint(w, \`{"status":"ok"}\`) })
- fmt.Println("API listening on http://127.0.0.1:3000")
- http.ListenAndServe("127.0.0.1:3000", nil)
+ port := os.Getenv("PORT")
+ if port == "" { port = "3000" }
+ host := os.Getenv("HOST")
+ if host == "" { if os.Getenv("PORT") != "" { host = "0.0.0.0" } else { host = "127.0.0.1" } }
+ address := net.JoinHostPort(host, port)
+ fmt.Println("API listening on http://" + address)
+ if err := http.ListenAndServe(address, nil); err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
 }
 `;
-    files['README.md'] = `# ${name}\n\n## Go HTTP starter\n${idea}\n\nThis starter exposes GET /health using Go's standard HTTP library. Add route handlers and persistent storage for your application.\n\n## Run and test\nOpen this project in BackendDev and choose Run API server. Try http://127.0.0.1:3000/health. The hosted BackendDev service does not execute user code.\n`;
+    files['README.md'] = `# ${name}\n\n## Go HTTP starter\n${idea}\n\nThis starter exposes GET /health using Go's standard HTTP library. Add route handlers, authentication, and persistent storage for your application.\n\n## Run and deploy\nInstall Go 1.22 or newer. Run \`go run .\` locally and try http://127.0.0.1:3000/health. Deploy with build command \`go build -o backend .\` and start command \`./backend\`; the service binds to the host-provided PORT.\n\n## Production limits\nThis is a health-service starter without CRUD routes or persistent storage. CORS is open for learning. Add a database, authentication, input validation, rate limits, and a restricted CORS origin before using real data or public users.\n`;
   } else if (language === 'Rust') {
     files['main.rs'] = 'fn main() { println!("Starter program. Add an HTTP framework to serve API routes."); }\n';
     files['README.md'] = `# ${name}\n\n## Rust console starter\n${idea}\n\nThis starter is a runnable Rust console program, not an HTTP server yet. Select a web framework such as Axum or Actix Web, then add routes and a database before treating it as an API.\n`;

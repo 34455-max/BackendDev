@@ -23,7 +23,13 @@ Supabase email delivery has a separate project-wide quota. Supabase's built-in s
 4. Select a file, edit it, and choose **Save file**. Saved project files are stored in your Supabase account.
 5. Use **Generate** to describe a change. BackendDev asks the configured model for a JSON proposal; inspect it and choose **Apply proposed files** to save it. The AI feature needs a working provider key, model ID, URL, network access, and API credits.
 6. Choose **Run API server** and start it. Unlike a one-shot command, the local server stays alive until you press **Stop backend**. Use the API tester at `http://127.0.0.1:3000/health`, `/products`, or the resource name in your project. Try GET, POST, PUT, PATCH, and DELETE; send JSON in the body for writes. The dashboard runtime check shows which language tools are installed.
-7. Choose **Run tests** to exercise checks, or **Build** for the language's compile/syntax step. Output and errors appear in the workspace. Export the project when you want to continue in your own editor or deploy it.
+7. Choose **Run tests** to exercise checks, or **Build** for the language's compile/syntax step. Output and errors appear in the workspace. **Export project** downloads a source ZIP that you can extract and open in your editor. `.env`, private keys, and common credential files are excluded from exports; add secrets locally or in your host's environment settings.
+
+### Deploying an exported starter
+
+Use **How to deploy** inside a project to see commands for its language. The Python, JavaScript, Go, and C++ HTTP starters listen on `127.0.0.1:3000` for local runs, then use the host-provided `PORT` and bind to `0.0.0.0` in deployment. Go projects include `go.mod`; C++ includes a Dockerfile. Rust and Java currently produce console examples rather than HTTP services, and Assembly targets Linux x86-64 with NASM. They need extra framework or platform work before being deployed as a web API.
+
+The generated HTTP starters are learning examples: data is in memory, CORS is open for the built-in browser tester, and routes have no authentication. Records disappear when the backend restarts. Before using real users or private data, add persistent storage, authentication and authorization, input validation, rate limits, backups, and an allowlist for CORS. The readiness review flags common omissions but is a source heuristic, not a security audit.
 
 ### Existing code and API contracts
 
@@ -70,7 +76,9 @@ Render's Free service can spin down after inactivity, so first requests may take
 
 For local signup, BackendDev uses the exact local app origin you opened for the email confirmation redirect. If Supabase rejects it, add that origin under **Authentication → URL Configuration → Redirect URLs**. A phone cannot open a `127.0.0.1` or `localhost` URL on your computer; phone sign-in needs the deployed public HTTPS URL added to Supabase's allowed redirects.
 
-The server authenticates project API requests against Supabase Auth and scopes database access by owner; it filters writes to valid table columns and sets `updated_at`. Smoke tests use a fake Supabase endpoint to verify this contract. Production code execution remains disabled until a hardened isolated worker is configured. The deployment checklist confirms configuration presence; it cannot verify email delivery or the live Supabase migration by itself.
+The server authenticates project API requests against Supabase Auth and scopes database access by owner; it filters writes to valid table columns and sets `updated_at`. Smoke tests use a fake Supabase endpoint to verify this contract. Production code execution remains disabled until a hardened isolated worker is configured.
+
+The deployment checklist now calls a live readiness endpoint to check Supabase Auth reachability, the projects table/migration, and the public auth URL, without returning credentials. AI provider reachability is only proven when a generation request runs; email delivery still requires a single end-to-end email check.
 
 The local runner uses a temporary working directory and keeps up to four local run sessions open, with a 30-minute cap per session. It has no OS/container security boundary. Run only code you trust. For public multi-user hosting, production code execution stays disabled until a secure worker is added. A hosted isolated worker still needs a separate provider/service, a defined API contract, and secrets configured on the host; this repository does not claim to provide remote sandbox execution yet.
 

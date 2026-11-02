@@ -121,9 +121,25 @@ async function compileNativeProject(language,dir,task='build'){
  }
  return {exitCode:2,output:'Unknown native language.'}
 }
+async function liveReadiness(){
+ const checks=[],configuredUrl=process.env.SUPABASE_URL,anon=process.env.SUPABASE_ANON_KEY;
+ const add=(label,ok,message,required=true)=>checks.push({label,ok:Boolean(ok),message,required});
+ add('Supabase settings',Boolean(configuredUrl&&anon),'Server-side URL and publishable key '+(configuredUrl&&anon?'are configured.':'are missing.'));
+ let base='';try{base=new URL(configuredUrl||'').origin}catch{}
+ if(base&&anon){
+  const headers={apikey:anon};
+  try{const response=await fetch(`${base}/auth/v1/settings`,{headers,signal:AbortSignal.timeout(5000)});add('Supabase Auth',response.ok,response.ok?'Auth API is reachable.':`Auth API returned HTTP ${response.status}.`)}catch(error){add('Supabase Auth',false,error.name==='TimeoutError'?'Auth API check timed out.':'Auth API could not be reached.')}
+  try{const response=await fetch(`${base}/rest/v1/projects?select=id&limit=0`,{headers,signal:AbortSignal.timeout(5000)});add('Projects database',response.ok,response.ok?'Projects table is reachable.':response.status===404?'Projects table is missing; run migration 001_projects.sql in the Supabase SQL Editor.':`Projects table check returned HTTP ${response.status}.`)}catch(error){add('Projects database',false,error.name==='TimeoutError'?'Projects database check timed out.':'Projects database could not be reached.')}
+ }else{add('Supabase Auth',false,'Configure SUPABASE_URL and SUPABASE_ANON_KEY before inviting users.');add('Projects database',false,'Configure Supabase and run migration 001_projects.sql before saving projects.')}
+ const publicUrl=process.env.APP_URL||process.env.RENDER_EXTERNAL_URL,production=process.env.NODE_ENV==='production';add('Public auth URL',!production||Boolean(publicUrl),production?(publicUrl?'Public URL is configured; confirm it is listed in Supabase Auth URL Configuration.':'Set APP_URL on the hosting service and allow it in Supabase Auth URL Configuration.'):'Local development URL is fine; set the deployed URL in Supabase redirects before production.');
+ let modelReady=false;try{const modelUrl=new URL(process.env.MODEL_API_URL||'https://api.openai.com/v1/chat/completions');modelReady=Boolean(process.env.MODEL_API_KEY&&process.env.MODEL_NAME&&['http:','https:'].includes(modelUrl.protocol))}catch{}add('AI settings',modelReady,modelReady?'Model endpoint, model name, and key are configured; provider reachability is checked when generating.':'AI generation needs MODEL_API_URL, MODEL_NAME, and MODEL_API_KEY.',false);
+ add('Hosted code execution',false,'Disabled in production until a secure isolated runner is configured.',false);
+ const required=checks.filter(check=>check.required);return {ready:required.every(check=>check.ok),checks,checkedAt:new Date().toISOString()};
+}
 const servers=http.createServer(async(req,res)=>{try{if(req.method==='OPTIONS'){res.writeHead(204,{'access-control-allow-origin':'*','access-control-allow-methods':'GET,POST,PUT,DELETE,OPTIONS','access-control-allow-headers':'content-type'});return res.end()}
 const url=new URL(req.url,'http://localhost');if(url.pathname.startsWith('/api/')){
  if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{status:'ok',mode:process.env.NODE_ENV==='production'?'production-configured':'local',multiUserReady:supabaseEnabled()&&(process.env.NODE_ENV!=='production'||Boolean(process.env.APP_URL||process.env.RENDER_EXTERNAL_URL))});
+  if(req.method==='GET'&&url.pathname==='/api/health/ready')return send(res,200,await liveReadiness());
  if(req.method==='GET'&&url.pathname==='/api/auth/mfa/factors'){await requireUser(req);const result=await supabaseUserAuth(req,'factors');return send(res,result.status,result.data)}
  if(req.method==='POST'&&url.pathname==='/api/auth/mfa/enroll'){await requireUser(req);const result=await supabaseUserAuth(req,'factors','POST',{factor_type:'totp',friendly_name:'BackendDev authenticator'});return send(res,result.status,result.data)}
  const mfaFactorAction=url.pathname.match(/^\/api\/auth\/mfa\/factors\/([a-f0-9-]{36})\/(challenge|verify|unenroll)$/i);
@@ -194,7 +210,7 @@ const url=new URL(req.url,'http://localhost');if(url.pathname.startsWith('/api/'
   try{for(const [name,content] of Object.entries(files)){if(name.startsWith('/')||name.split(/[\\/]/).includes('..')||name.includes(':'))throw Error('Invalid file path');const target=path.resolve(dir,name);if(!target.startsWith(dir+path.sep))throw Error('Invalid file path');await fs.mkdir(path.dirname(target),{recursive:true});await fs.writeFile(target,String(content))}}catch(error){await fs.rm(dir,{recursive:true,force:true});throw error}
   let [cmd,args]=runners[lang]||[];
   if(nativeLanguage){const compiled=await compileNativeProject(lang,dir,'build');if(compiled.exitCode!==0){await fs.rm(dir,{recursive:true,force:true});return send(res,200,{running:false,exitCode:compiled.exitCode,output:compiled.output||'Native build failed.'})}cmd=lang==='c++'&&process.platform==='win32'?path.join(dir,'backend.exe'):path.join(dir,'backend');args=[]}
-  const id=crypto.randomUUID(),child=spawn(cmd,args,{cwd:dir,windowsHide:true}),session={id,child,dir,language:lang,ownerId:user.id,output:'',running:true,exitCode:null,startedAt:Date.now()};runSessions.set(id,session);
+   const id=crypto.randomUUID(),child=spawn(cmd,args,{cwd:dir,windowsHide:true,env:{...process.env,PORT:'3000',HOST:'127.0.0.1'}}),session={id,child,dir,language:lang,ownerId:user.id,output:'',running:true,exitCode:null,startedAt:Date.now()};runSessions.set(id,session);
   child.stdout.on('data',chunk=>recordOutput(session,'stdout',chunk));child.stderr.on('data',chunk=>recordOutput(session,'stderr',chunk));
   child.on('error',error=>{session.output+=`Could not start ${cmd}: ${error.message}`;session.running=false;session.exitCode=127;fs.rm(dir,{recursive:true,force:true}).catch(()=>{})});
   child.on('close',code=>{session.running=false;session.exitCode=code??1;fs.rm(dir,{recursive:true,force:true}).catch(()=>{});setTimeout(()=>runSessions.delete(id),120000).unref()});
