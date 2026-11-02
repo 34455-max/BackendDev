@@ -80,7 +80,13 @@ The server authenticates project API requests against Supabase Auth and scopes d
 
 The deployment checklist now calls a live readiness endpoint to check Supabase Auth reachability, the projects table/migration, and the public auth URL, without returning credentials. AI provider reachability is only proven when a generation request runs; email delivery still requires a single end-to-end email check.
 
-The local runner uses a temporary working directory and keeps up to four local run sessions open, with a 30-minute cap per session. It has no OS/container security boundary. Run only code you trust. For public multi-user hosting, production code execution stays disabled until a secure worker is added. A hosted isolated worker still needs a separate provider/service, a defined API contract, and secrets configured on the host; this repository does not claim to provide remote sandbox execution yet.
+The local runner uses a temporary working directory and keeps up to four local run sessions open, with a 30-minute cap per session. It has no OS/container security boundary. In production, hosted Run, Build, and Test requests use a separate E2B sandbox per task; each persistent backend receives a maximum 30-minute lifetime, and users can stop it sooner. Hosted execution currently supports Python and JavaScript, accepts up to 150 text files / 500 KB source, does not install package dependencies, and excludes private `.env` and key files. C++, Assembly, Go, Rust, Java, and other local runtimes remain available on the user's computer.
+
+### Enable the hosted isolated runner
+
+Create an E2B account and API key at [e2b.dev](https://e2b.dev/). In the Render **BackendDev Web Service → Environment**, add `E2B_API_KEY` (the secret value) and `E2B_HOSTED_RUNNER=true`, then save and redeploy. Optionally set `E2B_TEMPLATE_ID` to a custom template; the default is E2B's `base` template. Keep `E2B_ALLOW_OUTBOUND` unset to deny sandbox outbound network access. Set it to `true` only when projects need to reach public services such as Supabase; the code still receives no BackendDev model, Supabase admin, or GitHub integration secrets. The generated starter's end-to-end database calls require the developer to provide that project's own environment configuration, which BackendDev does not currently forward into the sandbox.
+
+Each hosted run exposes an E2B HTTPS sandbox URL in the workspace API tester. Stop the backend when finished; it also expires after 30 minutes. E2B usage is separate from Render hosting and may be billable under E2B's current plan. Render's in-memory run-session list is limited to four concurrent hosted sessions per service instance and is not a distributed quota; use a shared queue/lease store before scaling Render to multiple instances. E2B is an isolation boundary, not a guarantee that arbitrary code is harmless; keep quotas and outbound networking restricted.
 
 ## Cursor behavior reviewed
 
