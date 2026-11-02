@@ -64,7 +64,7 @@ before(async () => {
   });
   await new Promise(resolve => mockDb.listen(mockPort,'127.0.0.1',resolve));
   appPort=await freePort();
-  app=spawn(process.execPath,['server.mjs'],{cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(appPort),NODE_ENV:'test',SUPABASE_URL:`http://127.0.0.1:${mockPort}`,SUPABASE_ANON_KEY:'test-publishable-key',APP_URL:'http://127.0.0.1:4173',APP_ADMIN_EMAILS:'owner@example.test',SUPABASE_SECRET_KEY:'sb_secret_test-key',GITHUB_TOKEN_ENCRYPTION_KEY:Buffer.alloc(32,7).toString('base64'),GITHUB_API_BASE_URL:`http://127.0.0.1:${mockGithubPort}`,MODEL_API_KEY:'mock-model-key',MODEL_API_URL:`http://127.0.0.1:${mockPort}/v1/chat/completions`,MODEL_NAME:'test-model'},stdio:'ignore'});
+  app=spawn(process.execPath,['server.mjs'],{cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(appPort),NODE_ENV:'test',API_ACCESS_TOKEN:'backenddev-test-token',SUPABASE_URL:`http://127.0.0.1:${mockPort}`,SUPABASE_ANON_KEY:'test-publishable-key',APP_URL:'http://127.0.0.1:4173',APP_ADMIN_EMAILS:'owner@example.test',SUPABASE_SECRET_KEY:'sb_secret_test-key',GITHUB_TOKEN_ENCRYPTION_KEY:Buffer.alloc(32,7).toString('base64'),GITHUB_API_BASE_URL:`http://127.0.0.1:${mockGithubPort}`,MODEL_API_KEY:'mock-model-key',MODEL_API_URL:`http://127.0.0.1:${mockPort}/v1/chat/completions`,MODEL_NAME:'test-model'},stdio:'ignore'});
   await ready(`http://127.0.0.1:${appPort}/api/health`,app);
 });
 after(async()=>{app?.kill();if(mockDb)await new Promise(resolve=>mockDb.close(resolve));if(mockGithub)await new Promise(resolve=>mockGithub.close(resolve));});
@@ -107,32 +107,36 @@ test('creates beginner CRUD starter templates that pass their generated checks',
   const asmRun=await fetch(`http://127.0.0.1:${appPort}/api/run/native`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer test-token'},body:JSON.stringify({language:'Assembly',task:'test',files:assembly})});assert.equal(asmRun.status,200);const asmResult=await asmRun.json();if(process.platform==='linux'&&process.arch==='x64'){assert.ok(asmResult.exitCode===0||asmResult.exitCode===127,asmResult.output);if(asmResult.exitCode===127)assert.match(asmResult.output,/Could not start nasm/)}else{assert.equal(asmResult.exitCode,1);assert.match(asmResult.output,/Linux x86-64/)}
 });
 test('builds and exercises a sample Tasks API through the BackendDev local runner',async()=>{
-  const files=createStarterFiles('JavaScript','Community Tasks API','Manage team tasks'),headers={'content-type':'application/json',authorization:'Bearer test-token'};
+  const files=createStarterFiles('JavaScript','Community Tasks API','Manage team tasks'),headers={'content-type':'application/json',authorization:'Bearer test-token'},apiHeaders={'content-type':'application/json',authorization:'Bearer backenddev-test-token'};
   const started=await fetch(`http://127.0.0.1:${appPort}/api/run/start`,{method:'POST',headers,body:JSON.stringify({language:'JavaScript',files})});assert.equal(started.status,200);const run=await started.json();assert.ok(run.sessionId);assert.equal(run.running,true,run.output);let health;
   try{
     for(let attempt=0;attempt<30;attempt++){try{health=await fetch('http://127.0.0.1:3000/health');if(health.ok)break}catch{}await wait(100)}
     assert.equal(health?.status,200,'generated API should listen on port 3000');assert.deepEqual(await health.json(),{status:'ok'});
-    const preflight=await fetch('http://127.0.0.1:3000/tasks',{method:'OPTIONS'});assert.equal(preflight.status,204);assert.equal(preflight.headers.get('access-control-allow-origin'),'*');
-    const created=await fetch('http://127.0.0.1:3000/tasks',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:'Test the API',done:false})});assert.equal(created.status,201);const task=await created.json();assert.equal(task.id,1);
-    const list=await fetch('http://127.0.0.1:3000/tasks');assert.deepEqual(await list.json(),[task]);
-    const read=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`);assert.equal((await read.json()).name,'Test the API');
-    const updated=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({done:true})});assert.equal((await updated.json()).done,true);
-    const invalid=await fetch('http://127.0.0.1:3000/tasks',{method:'POST',headers:{'content-type':'application/json'},body:'{invalid'});assert.equal(invalid.status,400);
-    const missing=await fetch('http://127.0.0.1:3000/tasks/999');assert.equal(missing.status,404);
-    const removed=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`,{method:'DELETE'});assert.equal(removed.status,200);const gone=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`);assert.equal(gone.status,404);
+    const preflight=await fetch('http://127.0.0.1:3000/tasks',{method:'OPTIONS',headers:{origin:'http://127.0.0.1:4173'}});assert.equal(preflight.status,204);assert.equal(preflight.headers.get('access-control-allow-origin'),'http://127.0.0.1:4173');assert.match(preflight.headers.get('access-control-allow-headers'),/Authorization/);
+    const blockedPreflight=await fetch('http://127.0.0.1:3000/tasks',{method:'OPTIONS',headers:{origin:'https://untrusted.example'}});assert.equal(blockedPreflight.status,204);assert.equal(blockedPreflight.headers.has('access-control-allow-origin'),false);
+    const unauthorized=await fetch('http://127.0.0.1:3000/tasks');assert.equal(unauthorized.status,401);
+    const created=await fetch('http://127.0.0.1:3000/tasks',{method:'POST',headers:apiHeaders,body:JSON.stringify({name:'Test the API',done:false})});assert.equal(created.status,201);const task=await created.json();assert.equal(task.id,1);
+    const list=await fetch('http://127.0.0.1:3000/tasks',{headers:apiHeaders});assert.deepEqual(await list.json(),[task]);
+    const read=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`,{headers:apiHeaders});assert.equal((await read.json()).name,'Test the API');
+    const updated=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`,{method:'PATCH',headers:apiHeaders,body:JSON.stringify({done:true})});assert.equal((await updated.json()).done,true);
+    const invalid=await fetch('http://127.0.0.1:3000/tasks',{method:'POST',headers:apiHeaders,body:'{invalid'});assert.equal(invalid.status,400);
+    const reserved=await fetch('http://127.0.0.1:3000/tasks',{method:'POST',headers:apiHeaders,body:JSON.stringify({id:99,name:'bad'})});assert.equal(reserved.status,400);
+    const missing=await fetch('http://127.0.0.1:3000/tasks/999',{headers:apiHeaders});assert.equal(missing.status,404);
+    const removed=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`,{method:'DELETE',headers:apiHeaders});assert.equal(removed.status,200);const gone=await fetch(`http://127.0.0.1:3000/tasks/${task.id}`,{headers:apiHeaders});assert.equal(gone.status,404);
   }finally{await fetch(`http://127.0.0.1:${appPort}/api/run/${run.sessionId}`,{method:'DELETE',headers:{authorization:'Bearer test-token'}})}
 });
 test('generated Node CRUD data survives an API process restart',async()=>{
   const files=createStarterFiles('JavaScript','Persistent Tasks API','Manage team tasks'),dir=await fs.mkdtemp(path.join(os.tmpdir(),'backenddev-sqlite-')),port=await freePort(),dbPath=path.join(dir,'records.sqlite3');
   await fs.writeFile(path.join(dir,'index.js'),files['index.js']);
-  const start=()=>spawn(process.execPath,[path.join(dir,'index.js')],{cwd:dir,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',DATABASE_PATH:dbPath},stdio:'ignore'});
+  const start=()=>spawn(process.execPath,[path.join(dir,'index.js')],{cwd:dir,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',DATABASE_PATH:dbPath,API_ACCESS_TOKEN:'backenddev-persist-token'},stdio:'ignore'});
   const waitForApi=async child=>{for(let i=0;i<40;i++){if(child.exitCode!==null)throw new Error('Generated API exited early');try{const response=await fetch(`http://127.0.0.1:${port}/health`);if(response.ok)return}catch{}await wait(100)}throw new Error('Generated SQLite API did not start')};
   let child=start();
   try{
     await waitForApi(child);
-    const created=await fetch(`http://127.0.0.1:${port}/tasks`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:'Survive restart'})});assert.equal(created.status,201);const row=await created.json();
+    const authHeaders={'content-type':'application/json',authorization:'Bearer backenddev-persist-token'};
+    const created=await fetch(`http://127.0.0.1:${port}/tasks`,{method:'POST',headers:authHeaders,body:JSON.stringify({name:'Survive restart'})});assert.equal(created.status,201);const row=await created.json();
     child.kill();await new Promise(resolve=>child.once('exit',resolve));child=start();await waitForApi(child);
-    const restored=await fetch(`http://127.0.0.1:${port}/tasks/${row.id}`);assert.equal(restored.status,200);assert.deepEqual(await restored.json(),row);
+    const restored=await fetch(`http://127.0.0.1:${port}/tasks/${row.id}`,{headers:authHeaders});assert.equal(restored.status,200);assert.deepEqual(await restored.json(),row);
   }finally{child.kill();await new Promise(resolve=>child.once('exit',resolve));await fs.rm(dir,{recursive:true,force:true})}
 });
 test('creates and updates projects using only real Supabase columns',async()=>{
