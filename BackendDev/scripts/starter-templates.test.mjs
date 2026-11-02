@@ -36,3 +36,4 @@ test('unsupported database requests fall back explicitly to the supported SQLite
   assert.match(files['DATABASE.md'], /does not yet connect/i);
   assert.doesNotMatch(files['README.md'], /per-user .* REST API backed by Supabase Postgres/);
 });
+
