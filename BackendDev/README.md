@@ -39,7 +39,7 @@ Use **Run project readiness review** after importing or editing code to check fo
 
 ### Continuous integration
 
-The repository includes a GitHub Actions workflow at `.github/workflows/ci.yml`. Each push and pull request targeting `master` or `main` runs syntax checks and the full BackendDev test suite on Node.js 20 and 22. To require these checks before merging, enable branch protection or a ruleset for your default branch in GitHub and select both `verify (20)` and `verify (22)` as required status checks.
+The repository includes a GitHub Actions workflow at `.github/workflows/ci.yml`. Each push and pull request targeting `master` or `main` runs syntax checks and the full BackendDev test suite on Node.js 22. To require these checks before merging, enable branch protection or a ruleset for your default branch in GitHub and select both `verify (20)` and `verify (22)` as required status checks.
 
 ### GitHub repository and branch workflow
 
@@ -97,3 +97,4 @@ Runnable starters are Python, JavaScript / Node.js, Go, Rust, and Java. Python a
 - `app.js` — client-side interactions
 - `starter-templates.js` — generated project files and beginner CRUD templates
 - `scripts/smoke-test.mjs` — server, database schema contract, starter, runner, and production safety checks
+
