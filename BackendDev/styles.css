@@ -314,8 +314,8 @@ body[data-theme="light"] .feedback-launcher{background:#eff8e9;color:#2f6429}
 body[data-theme="light"] .admin-project-content{background:#f6f9f6;color:#26382c}
 @media(max-width:720px){.admin-overview{grid-template-columns:1fr}.admin-modal{padding:23px}.feedback-actions{width:100%}.feedback-actions>*{flex:1}.admin-project-modal{padding:22px}}
 .password-input-wrap{position:relative;width:100%;min-width:0;margin:0}
-.auth-modal .password-input-wrap input{padding-right:82px!important}
-.password-visibility-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);min-width:62px;min-height:36px;padding:7px 9px;border:1px solid #708175;border-radius:8px;background:#33423a;color:#f4f8f4;font:700 13px/1 'DM Sans',sans-serif;cursor:pointer}
+.auth-modal .password-input-wrap input{padding-right:62px!important}
+.password-visibility-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:42px;height:42px;padding:0;border:1px solid #708175;border-radius:12px;background:#33423a;color:#f4f8f4;cursor:pointer;transition:background .16s ease,border-color .16s ease,transform .16s ease}.password-visibility-toggle .eye-icon{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.password-visibility-toggle .eye-icon[hidden]{display:none}
 .password-visibility-toggle:hover{background:#405448;border-color:#9ac87c}
 body[data-theme="light"] .password-visibility-toggle{background:#edf4ed;color:#24412a;border-color:#bdcdbf}
 body[data-theme="light"] .password-visibility-toggle:hover{background:#e0efdc}

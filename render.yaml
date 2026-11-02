@@ -10,6 +10,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: APP_URL
+        value: https://backenddev.hanskhan.me
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
